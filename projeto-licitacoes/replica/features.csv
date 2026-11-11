@@ -1,0 +1,35 @@
+feature,area,priority,original,clone,notes
+Cadastro e login por e-mail e senha,conta,must,yes,partial,login próprio (scrypt + sessão httpOnly + limite de tentativas) testado; faltam verificação de e-mail e recuperação de senha (precisam de provedor de e-mail)
+Login com Google,conta,should,yes,no,OAuth com app Google próprio
+Organização com vários usuários,conta,must,yes,partial,tabelas e organizacao_id em todas as consultas prontos; sem tela de convite
+Cadastro do ramo (produtos e termos e UFs),perfil,must,yes,yes,termos + termos excluídos + UFs + modalidades; testado no navegador
+Ingestão das licitações abertas do PNCP,dados,must,yes,yes,Brasil inteiro e 12 modalidades: 29.664 abertas ingeridas em ~35 min respeitando o limite de taxa
+Atualização incremental (retificação e situação),dados,must,yes,partial,fatia reaberta a cada 3 horas e upsert por número de controle; falta /contratacoes/atualizacao
+Buscar por objeto,busca,must,yes,yes,FTS em português com unaccent e radical; validado com dados reais
+Buscar por órgão ou número do processo,busca,must,yes,yes,busca parcial sem acento
+Termos a incluir e a excluir,busca,must,yes,yes,"aspas, hífen e or (websearch_to_tsquery)"
+Filtro por UF e região,busca,must,yes,partial,filtro por UF pronto; agrupamento por região não
+Filtro por modalidade,busca,must,yes,yes,lista vem das modalidades ingeridas
+Filtro por valor estimado,busca,should,yes,yes,mínimo e máximo em reais
+Filtro por prazo de encerramento,busca,must,yes,partial,só o recorte de 7 dias
+Recortes prontos (meu ramo e encerrando em 7 dias),busca,should,yes,yes,os dois testados com dados reais
+Indicador de aderência por licitação,busca,must,yes,yes,nota 0-100 com motivos; regra inicial em lib/aderencia.ts para ajustar
+Buscar por item e aderência por item,busca,could,yes,no,depende do endpoint de itens da API PNCP principal
+Lista responsiva (tabela no desktop e cartões no celular),busca,must,yes,partial,vazio + carregando + sem resultados + paginação prontos; falta estado de erro e conferir em 390px
+Detalhe da licitação com link para o sistema de origem,busca,must,yes,yes,links para o PNCP e para o sistema do órgão
+Salvar busca,alertas,must,yes,no,
+Alerta por e-mail só com licitações novas,alertas,should,yes,no,deduplicar por busca e licitação; descadastro em 1 clique
+Motivo do aviso (por que apareceu),alertas,should,yes,no,
+Notificação push no celular,alertas,could,yes,no,
+Acompanhar licitação (entrar no funil),funil,must,yes,yes,Server Action idempotente; validado no navegador
+Quadro por etapas com mudança em um clique,funil,must,yes,yes,grava no banco com trava otimista; desfazer em conflito não verificado no navegador
+Prioridade e tags e responsável no card,funil,should,yes,no,exibição pronta; falta edição
+Filtros do funil (prioridade e UF e tag),funil,should,yes,no,
+Prazo por etapa,funil,should,yes,no,
+Calendário de prazos,funil,must,yes,no,componente de lista pronto no /design; tela S07 em construção
+Página do processo com checklist e notas,funil,should,yes,no,
+Painel de desempenho do funil,funil,could,yes,no,conteúdo do original não observado
+Histórico de mudanças de etapa,funil,could,no,partial,gravado em mudanca_etapa; ainda não exibido
+Base de dados do VouLicitar,dados,could,yes,skip,termos vedam extração; usamos o PNCP direto
+Comunidade de WhatsApp,marketing,could,yes,skip,rede deles e não funcionalidade
+Programa de consultores,marketing,could,yes,skip,rede de parceiros deles

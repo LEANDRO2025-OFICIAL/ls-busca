@@ -1,0 +1,35 @@
+{
+  "available": {
+    "rea-artifact-graph": [
+      "decode_interface_builder",
+      "inspect_keyed_archive",
+      "trace_dylib_resolution",
+      "extract_artifact",
+      "inspect_artifact"
+    ],
+    "rea-dotnet-static": [
+      "inspect_managed_artifact",
+      "inspect_managed_members",
+      "inspect_managed_native_boundaries"
+    ],
+    "sqlite": [
+      "inspect_sqlite_database"
+    ]
+  },
+  "unavailable": {
+    "native-macos": [
+      "capture_native_ui_scenario [unsupported_host]",
+      "observe_native_calls [unsupported_host]",
+      "demangle_swift [unsupported_host]",
+      "inspect_macho [unsupported_host]",
+      "inspect_plist [unsupported_host]",
+      "inspect_signature [unsupported_host]",
+      "list_architectures [unsupported_host]",
+      "inspect_native_dispatch_metadata [unsupported_host]",
+      "observe_native_ui [unsupported_host]"
+    ],
+    "rea-artifact-graph": [
+      "inspect_asset_catalog [unsupported_host]"
+    ]
+  }
+}
