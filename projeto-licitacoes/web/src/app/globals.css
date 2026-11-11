@@ -24,6 +24,20 @@ html[data-contraste="alto"] {
   --color-danger: #8f1a10;
   --color-success: #0f5a38;
 }
+/* Alto contraste no tema escuro: mesmo ajuste, no sentido inverso (texto e bordas mais claros). */
+html[data-theme="dark"][data-contraste="alto"] {
+  --color-ink: #ffffff;
+  --color-muted: #d5e0dc;
+  --color-line: #8a9a94;
+  --color-line-strong: #e6efec;
+  --color-accent: #7fe0d1;
+  --color-accent-hover: #a3ece0;
+  --color-accent-strong: #c2f4ec;
+  --color-focus: #ffffff;
+  --color-warning: #ffcf8a;
+  --color-danger: #ffb8b0;
+  --color-success: #9be8bf;
+}
 
 @theme inline {
   --font-sans: var(--font-plex-sans), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;

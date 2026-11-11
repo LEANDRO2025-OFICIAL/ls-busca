@@ -57,6 +57,39 @@
   --container-conteudo: 1280px;
 }
 
+/*
+ * Tema escuro: os MESMOS papéis, redefinidos (color-dark em tokens.json). Mesma família
+ * verde-petróleo; fundos escuros com leve matiz, accent clareado e texto escuro sobre ele.
+ * O atributo é posto em <html> pelo script de app/layout.tsx antes da primeira pintura.
+ * Contraste conferido em replica/design/contrast-report.txt (node contrast.mjs).
+ */
+:root { color-scheme: light; }
+[data-theme="dark"] {
+  color-scheme: dark;
+  --color-bg: #0e1614;
+  --color-surface: #141f1c;
+  --color-surface-2: #1d2b27;
+  --color-line: #2a3a35;
+  --color-line-strong: #6b7c76;
+  --color-ink: #e6efec;
+  --color-muted: #a3b3ad;
+  --color-accent: #45b8a8;
+  --color-accent-hover: #5fc9ba;
+  --color-accent-strong: #8adfd1;
+  --color-accent-soft: #12332d;
+  --color-on-accent: #06231f;
+  --color-warning: #f0b35a;
+  --color-warning-soft: #3a2a10;
+  --color-danger: #ff9389;
+  --color-danger-soft: #43201c;
+  --color-success: #6fd39f;
+  --color-success-soft: #15362a;
+  --color-focus: #5fc9ba;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, .40), 0 1px 3px rgba(0, 0, 0, .30);
+  --shadow-pop: 0 12px 28px rgba(0, 0, 0, .55);
+  --shadow-drag: 0 8px 20px rgba(0, 0, 0, .60);
+}
+
 @layer base {
   html { font-family: var(--font-sans); color: var(--color-ink); background: var(--color-bg); }
   /* Valores, datas e números de processo alinham em coluna. */
