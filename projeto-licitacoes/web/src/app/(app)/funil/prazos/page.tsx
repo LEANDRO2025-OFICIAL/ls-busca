@@ -15,7 +15,7 @@ export const metadata: Metadata = { title: "Prazos" };
 
 type Parametros = Promise<Record<string, string | string[] | undefined>>;
 
-const FINAIS = new Set(["ganhou", "perdeu", "desistiu"]);
+const FINAIS = new Set(["perdeu", "desistiu"]);
 
 export default function PaginaPrazos({ searchParams }: { searchParams: Parametros }) {
   return (

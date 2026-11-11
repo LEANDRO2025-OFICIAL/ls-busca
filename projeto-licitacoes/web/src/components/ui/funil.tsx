@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRef, useState, type KeyboardEvent } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { ETAPAS, NOME_ETAPA, type EtapaId } from "@/lib/etapas";
+import { ETAPAS, ETAPAS_ENCERRADAS, FASES, NOME_ETAPA, type EtapaId } from "@/lib/etapas";
 import { useAvisos } from "./avisos";
 import { Botao, Selo, type TomSelo } from "./basicos";
 import { Prazo } from "./licitacao";
@@ -13,17 +13,20 @@ export type { EtapaId };
 
 const ORDEM = ETAPAS;
 
-const COLUNAS: { id: string; nome: string; etapas: EtapaId[] }[] = [
-  { id: "interesse", nome: "Triagem", etapas: ["interesse"] },
-  { id: "analise", nome: "Em análise", etapas: ["analise"] },
-  { id: "decidido", nome: "Decidido", etapas: ["decidido_participar"] },
-  { id: "proposta", nome: "Proposta enviada", etapas: ["proposta_enviada"] },
-  { id: "sessao", nome: "Sessão hoje", etapas: ["sessao_hoje"] },
-  { id: "disputa", nome: "Em disputa", etapas: ["em_disputa"] },
-  { id: "encerrado", nome: "Encerrado", etapas: ["ganhou", "perdeu", "desistiu"] },
+// Colunas do Kanban = as 6 fases + a saída do fluxo. Soltar um cartão na coluna leva à primeira
+// etapa dela; o seletor "Mover para" de cada cartão escolhe a etapa exata.
+const COLUNAS: { id: string; nome: string; etapas: readonly EtapaId[] }[] = [
+  ...FASES,
+  { id: "encerradas", nome: "Encerradas", etapas: ETAPAS_ENCERRADAS },
 ];
 
-const RESULTADO: Partial<Record<EtapaId, TomSelo>> = { ganhou: "sucesso", perdeu: "perigo", desistiu: "neutro" };
+const RESULTADO: Partial<Record<EtapaId, TomSelo>> = {
+  ganhou: "sucesso",
+  homologacao: "sucesso",
+  contrato: "sucesso",
+  perdeu: "perigo",
+  desistiu: "neutro",
+};
 const PRIORIDADE: Record<1 | 2 | 3, { nome: string; tom: TomSelo }> = {
   1: { nome: "Alta", tom: "aviso" },
   2: { nome: "Média", tom: "neutro" },
@@ -66,6 +69,8 @@ export function QuadroFunil({
 }) {
   const [cartoes, setCartoes] = useState(cartoesIniciais);
   const [anuncio, setAnuncio] = useState("");
+  const [arrastando, setArrastando] = useState<string | null>(null);
+  const [sobre, setSobre] = useState<string | null>(null);
   const mostrarAviso = useAvisos();
   const agora = new Date(agoraISO);
 
@@ -119,7 +124,29 @@ export function QuadroFunil({
             <section
               key={coluna.id}
               aria-labelledby={`coluna-${coluna.id}`}
-              className="flex w-coluna shrink-0 flex-col gap-2 rounded-lg bg-surface-2 p-2"
+              data-coluna={coluna.id}
+              onDragOver={(e) => {
+                if (!arrastando) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+                if (sobre !== coluna.id) setSobre(coluna.id);
+              }}
+              onDragLeave={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setSobre(null);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                const id = arrastando ?? e.dataTransfer.getData("text/plain");
+                const cartao = cartoes.find((c) => c.id === id);
+                setArrastando(null);
+                setSobre(null);
+                // Soltar na própria coluna não muda a etapa (ex.: "Em disputa" continua em Proposta).
+                if (cartao && !coluna.etapas.includes(cartao.etapa)) mover(cartao.id, coluna.etapas[0]);
+              }}
+              className={cn(
+                "flex w-coluna shrink-0 flex-col gap-2 rounded-lg bg-surface-2 p-2 transition-shadow",
+                sobre === coluna.id && "ring-2 ring-accent",
+              )}
             >
               <h3
                 id={`coluna-${coluna.id}`}
@@ -138,10 +165,21 @@ export function QuadroFunil({
                     <li key={c.id}>
                       <article
                         tabIndex={0}
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData("text/plain", c.id);
+                          e.dataTransfer.effectAllowed = "move";
+                          setArrastando(c.id);
+                        }}
+                        onDragEnd={() => {
+                          setArrastando(null);
+                          setSobre(null);
+                        }}
                         onKeyDown={(e) => teclas(e, c)}
                         aria-label={`${c.objeto}. Etapa: ${NOME_ETAPA[c.etapa]}. Setas esquerda e direita mudam a etapa.`}
                         className={cn(
-                          "rounded-md border border-line bg-bg p-3 shadow-card",
+                          "cursor-grab rounded-md border border-line bg-bg p-3 shadow-card active:cursor-grabbing",
+                          arrastando === c.id && "opacity-60 shadow-drag",
                           c.prioridade === 1 && "border-l-[3px] border-l-warning",
                         )}
                       >
@@ -154,7 +192,9 @@ export function QuadroFunil({
                         )}
                         <p className="mt-1 text-xs text-muted">{c.orgaoUf}</p>
                         <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                          {RESULTADO[c.etapa] && <Selo tom={RESULTADO[c.etapa]}>{NOME_ETAPA[c.etapa]}</Selo>}
+                          {(RESULTADO[c.etapa] || coluna.etapas.length > 1) && (
+                            <Selo tom={RESULTADO[c.etapa] ?? "accent"}>{NOME_ETAPA[c.etapa]}</Selo>
+                          )}
                           <Selo tom={PRIORIDADE[c.prioridade].tom}>Prioridade {PRIORIDADE[c.prioridade].nome.toLowerCase()}</Selo>
                           {c.tags.map((t) => (
                             <Selo key={t} tom="accent">
@@ -181,10 +221,14 @@ export function QuadroFunil({
                             onChange={(e) => mover(c.id, e.target.value as EtapaId)}
                             className="h-7 min-w-0 flex-1 rounded-sm border border-line-strong bg-bg px-1 text-xs text-ink"
                           >
-                            {ORDEM.map((etapa) => (
-                              <option key={etapa} value={etapa}>
-                                {NOME_ETAPA[etapa]}
-                              </option>
+                            {COLUNAS.map((grupo) => (
+                              <optgroup key={grupo.id} label={grupo.nome}>
+                                {grupo.etapas.map((etapa) => (
+                                  <option key={etapa} value={etapa}>
+                                    {NOME_ETAPA[etapa]}
+                                  </option>
+                                ))}
+                              </optgroup>
                             ))}
                           </select>
                         </label>

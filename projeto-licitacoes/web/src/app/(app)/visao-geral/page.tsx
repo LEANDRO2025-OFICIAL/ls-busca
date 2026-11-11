@@ -129,7 +129,7 @@ async function Painel() {
               {ETAPAS.map((e) => (
                 <li key={e} className="flex items-center justify-between px-3 py-2 text-sm">
                   <span className="text-ink">{NOME_ETAPA[e]}</span>
-                  <Selo tom={e === "ganhou" ? "sucesso" : e === "perdeu" ? "perigo" : porEtapa.get(e) ? "accent" : "neutro"}>
+                  <Selo tom={e === "ganhou" || e === "homologacao" || e === "contrato" ? "sucesso" : e === "perdeu" ? "perigo" : porEtapa.get(e) ? "accent" : "neutro"}>
                     <span className="num">{porEtapa.get(e)}</span>
                   </Selo>
                 </li>
