@@ -116,6 +116,11 @@ O banco embutido serve para experimentar. Para uso diário, um Postgres real agu
 
 `alerta.tipo` é `busca` (alerta) ou `comunidade` (interesse no mural de grandes licitações). `valorEstimado` (em reais), `municipio` e `encerramento` podem vir `null`.
 
+## Comunidade de grandes licitações
+
+- `/comunidade` é um mural **interno** com as licitações em aberto de valor estimado a partir de `COMUNIDADE_VALOR_MINIMO` (em reais; padrão R$ 10.000.000), com filtros por UF, município, modalidade e valor mínimo (o filtro só sobe o piso).
+- Cada pessoa cadastra os próprios **interesses** (faixa de valor, UF, município, modalidade). Eles usam o mesmo casamento dos alertas: na ingestão, a licitação nova que casa gera um aviso na tela (sino e histórico da página) e entra no mesmo webhook, com `alerta.tipo = "comunidade"`.
+
 ## Testes
 
 ```bash

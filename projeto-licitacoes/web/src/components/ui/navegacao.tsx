@@ -4,10 +4,12 @@ import {
   Briefcase,
   Building2,
   CalendarClock,
+  CalendarDays,
   ChartColumn,
   Columns3,
   FolderOpen,
   House,
+  Landmark,
   LifeBuoy,
   LogOut,
   Search,
@@ -35,6 +37,7 @@ const GRUPOS: Grupo[] = [
       { href: "/buscar", rotulo: "Buscar", icone: Search },
       { href: "/para-voce", rotulo: "Para sua empresa", icone: Sparkles },
       { href: "/alertas", rotulo: "Alertas", icone: Bell },
+      { href: "/comunidade", rotulo: "Grandes licitações", icone: Landmark },
     ],
   },
   {
@@ -42,6 +45,7 @@ const GRUPOS: Grupo[] = [
     itens: [
       { href: "/funil", rotulo: "Funil", icone: Columns3 },
       { href: "/funil/prazos", rotulo: "Prazos", icone: CalendarClock },
+      { href: "/calendario", rotulo: "Calendário", icone: CalendarDays },
       { href: "/empresa", rotulo: "Perfil da empresa", icone: Briefcase },
       { href: "/inicio/ramo", rotulo: "Ramo da empresa", icone: Building2 },
       { href: "/documentos", rotulo: "Documentos", icone: FolderOpen },
