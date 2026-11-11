@@ -39,12 +39,12 @@ export default function LayoutApp({ children }: { children: ReactNode }) {
         <div className="flex min-w-0 flex-1 flex-col">
           <nav aria-label="Principal" className="flex gap-1 overflow-x-auto border-b border-line bg-surface px-2 py-2 lg:hidden">
             {ATALHOS_CELULAR.map((a) => (
-              <Link key={a.href} href={a.href} className="rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-ink hover:bg-surface-2">
+              <Link key={a.href} href={a.href} className="rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-ink transition-colors hover:bg-surface-2">
                 {a.rotulo}
               </Link>
             ))}
             <form action={acaoSair} className="ml-auto">
-              <button type="submit" className="rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-ink hover:bg-surface-2">
+              <button type="submit" className="rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-ink transition-colors hover:bg-surface-2">
                 Sair
               </button>
             </form>

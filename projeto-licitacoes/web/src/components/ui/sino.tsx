@@ -45,7 +45,7 @@ export async function Sino() {
     <details className="relative">
       <summary
         aria-label={quantidade ? `Notificações: ${quantidade}` : "Notificações"}
-        className="relative flex size-9 cursor-pointer list-none items-center justify-center rounded-md border border-line-strong bg-bg hover:bg-surface-2 [&::-webkit-details-marker]:hidden"
+        className="relative flex size-9 cursor-pointer list-none items-center justify-center rounded-md border border-line-strong bg-bg transition-colors hover:bg-surface-2 [&::-webkit-details-marker]:hidden"
       >
         <Bell aria-hidden className="size-4" />
         {quantidade > 0 && (

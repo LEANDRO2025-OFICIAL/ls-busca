@@ -73,7 +73,7 @@ export function Navegacao({ atual, novasParaVoce = 0 }: { atual: string; novasPa
                       href={href}
                       aria-current={ativo ? "page" : undefined}
                       className={cn(
-                        "relative flex h-9 items-center gap-2.5 rounded-md px-2 text-sm transition-colors duration-150",
+                        "relative flex h-9 items-center gap-2.5 rounded-md px-2 text-sm transition-colors",
                         ativo
                           ? "bg-accent-soft font-semibold text-accent-strong before:absolute before:inset-y-1.5 before:left-0 before:w-[3px] before:rounded-full before:bg-accent"
                           : "text-ink hover:bg-surface-2",
@@ -98,7 +98,7 @@ export function Navegacao({ atual, novasParaVoce = 0 }: { atual: string; novasPa
       <form action={acaoSair} className="mt-auto">
         <button
           type="submit"
-          className="flex h-9 w-full items-center gap-2.5 rounded-md px-2 text-sm text-ink transition-colors duration-150 hover:bg-surface-2"
+          className="flex h-9 w-full items-center gap-2.5 rounded-md px-2 text-sm text-ink transition-colors hover:bg-surface-2"
         >
           <LogOut aria-hidden className="size-4" />
           Sair

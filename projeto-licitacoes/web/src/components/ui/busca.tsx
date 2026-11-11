@@ -115,7 +115,7 @@ export function FiltroLink({ rotulo, href, ativo }: { rotulo: string; href: stri
       href={href}
       aria-pressed={ativo}
       className={cn(
-        "inline-flex h-8 items-center gap-1.5 rounded-pill border px-3 text-xs font-medium transition-colors duration-150",
+        "inline-flex h-8 items-center gap-1.5 rounded-pill border px-3 text-xs font-medium transition-colors",
         ativo ? "border-accent bg-accent-soft text-accent-strong" : "border-line bg-bg text-ink hover:bg-surface",
       )}
     >
@@ -140,7 +140,7 @@ export function FiltroChip({
       aria-pressed={ativo}
       onClick={() => setAtivo((a) => !a)}
       className={cn(
-        "inline-flex h-8 items-center gap-1.5 rounded-pill border px-3 text-xs font-medium transition-colors duration-150",
+        "inline-flex h-8 items-center gap-1.5 rounded-pill border px-3 text-xs font-medium transition-colors",
         ativo ? "border-accent bg-accent-soft text-accent-strong" : "border-line bg-bg text-ink hover:bg-surface",
       )}
     >

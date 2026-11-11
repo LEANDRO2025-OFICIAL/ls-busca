@@ -39,6 +39,22 @@ html[data-theme="dark"][data-contraste="alto"] {
   --color-success: #9be8bf;
 }
 
+/*
+ * Campos de formulário: estados iguais em todas as telas (os campos são escritos com as mesmas
+ * utilitárias em vários lugares). Fora de @layer para valer sobre a borda definida por utilitária.
+ */
+:where(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="file"]), select, textarea) {
+  transition: border-color var(--duration-rapida) var(--ease-padrao), background-color var(--duration-rapida) var(--ease-padrao);
+}
+:where(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="file"]), select, textarea):hover:not(:disabled, [aria-invalid="true"], :focus-visible) {
+  border-color: var(--color-muted);
+}
+:where(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="file"]), select, textarea):focus-visible:not([aria-invalid="true"]) {
+  border-color: var(--color-focus);
+}
+:where(input, select, textarea, button):disabled { cursor: not-allowed; }
+:where(select, textarea):disabled { opacity: .6; }
+
 @theme inline {
   --font-sans: var(--font-plex-sans), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
