@@ -2,150 +2,167 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
-import { BellOff, Check, Trash2 } from "lucide-react";
-import { acaoMarcarBuscaVista, acaoRemoverBusca } from "@/app/acoes";
-import { Botao, Esqueleto, EstadoVazio, Selo } from "@/components/ui/basicos";
-import { formatarValor } from "@/components/ui/licitacao";
-import { listarBuscasSalvas, novidadesDoAlerta } from "@/lib/dados/alertas";
+import { BellOff, Check, History, Pause, Pencil, Play, Trash2 } from "lucide-react";
+import { acaoDefinirAlertaAtivo, acaoMarcarBuscaVista, acaoRemoverBusca } from "@/app/acoes";
+import { FormularioAlerta, ListaAvisos, resumoDoAlerta } from "@/components/ui/alertas";
+import { Alerta, Botao, Esqueleto, EstadoVazio, Selo } from "@/components/ui/basicos";
+import { listarAvisos, listarBuscasSalvas } from "@/lib/dados/alertas";
 import { obterDb } from "@/lib/dados/db";
-import { listarModalidades, obterPerfil } from "@/lib/dados/perfil";
-import { montarHref } from "@/lib/filtros-busca";
+import { listarModalidades } from "@/lib/dados/perfil";
+import { lerFiltros, montarHref } from "@/lib/filtros-busca";
 import { exigirOrganizacao } from "@/lib/sessao";
 
 export const metadata: Metadata = { title: "Alertas" };
 
-const formatoDataHora = new Intl.DateTimeFormat("pt-BR", {
-  timeZone: "America/Sao_Paulo",
-  day: "2-digit",
-  month: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-});
+type Parametros = Promise<Record<string, string | string[] | undefined>>;
 
-export default function PaginaAlertas() {
+const linkAcao = "inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-semibold text-accent hover:bg-accent-soft";
+
+export default function PaginaAlertas({ searchParams }: { searchParams: Parametros }) {
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-6 md:px-8">
       <header>
         <h1 className="text-xl font-bold">Alertas</h1>
         <p className="text-sm text-muted">
-          Suas buscas salvas. Cada uma mostra as licitações que entraram na base desde a última vez que você marcou como vistas.
+          Salve uma busca como alerta: quando entrar na base uma licitação que casa com ela, você recebe um aviso aqui e no
+          sino. Cada licitação é avisada uma única vez por alerta.
         </p>
       </header>
       <Suspense fallback={<Esqueleto className="h-64 w-full" />}>
-        <Lista />
+        <Lista searchParams={searchParams} />
       </Suspense>
       <p className="text-xs text-muted">
-        Aviso por e-mail precisa de um provedor de envio configurado (ainda não há). Por enquanto, as novidades aparecem aqui.
-        A base é atualizada pelo PNCP enquanto o sistema está aberto.
+        Os avisos são gerados a cada atualização da base pelo PNCP. Para receber também fora do sistema, configure um
+        webhook (ALERTA_WEBHOOK_URL, descrito no README); não há envio de e-mail.
       </p>
     </main>
   );
 }
 
-async function Lista() {
+async function Lista({ searchParams }: { searchParams: Parametros }) {
   await connection();
+  const { editar, historico, erro, ok } = await searchParams;
   const { organizacaoId } = await exigirOrganizacao();
   const db = await obterDb();
-  const buscas = await listarBuscasSalvas(db, organizacaoId);
-  if (buscas.length === 0) {
-    return (
-      <EstadoVazio
-        icone={BellOff}
-        titulo="Nenhum alerta ainda"
-        texto="Faça uma busca, aplique os filtros que quiser e clique em “Salvar alerta” logo abaixo do total de resultados."
-        acao={
-          <Link href="/buscar" className="text-sm font-semibold text-accent hover:underline">
-            Ir para a busca
-          </Link>
-        }
-      />
-    );
-  }
-
-  const perfil = await obterPerfil(db, organizacaoId);
-  const nomesModalidade = new Map((await listarModalidades(db)).map((m) => [m.id, m.nome]));
-
-  const cartoes = [];
-  for (const b of buscas) {
-    const { f, novas } = await novidadesDoAlerta(db, organizacaoId, perfil, b);
-    const resumo = [
-      f.q && `“${f.q}”`,
-      f.ramo && "Meu ramo",
-      f.uf,
-      f.modalidade && (nomesModalidade.get(f.modalidade) ?? `Modalidade ${f.modalidade}`),
-      f.valorMin != null && `a partir de ${formatarValor(f.valorMin * 100)}`,
-      f.valorMax != null && `até ${formatarValor(f.valorMax * 100)}`,
-      f.encerra && "encerra em 7 dias",
-      f.aderencia && (f.aderencia === 70 ? "aderência alta" : "aderência média ou alta"),
-    ].filter(Boolean);
-    cartoes.push({ b, f, novas, resumo });
-  }
+  const alertas = await listarBuscasSalvas(db, organizacaoId, { tipo: "busca" });
+  const modalidades = await listarModalidades(db);
+  const nomesModalidade = new Map(modalidades.map((m) => [m.id, m.nome]));
+  const emEdicao = alertas.find((a) => a.id === editar);
+  const comHistorico = alertas.find((a) => a.id === historico);
+  const naoLidos = await listarAvisos(db, organizacaoId, { tipo: "busca", apenasNaoLidos: true, limite: 200 });
+  const avisosDoHistorico = comHistorico
+    ? await listarAvisos(db, organizacaoId, { tipo: "busca", alertaId: comHistorico.id, limite: 100 })
+    : [];
 
   return (
-    <ul className="flex flex-col gap-3">
-      {cartoes.map(({ b, f, novas, resumo }) => (
-        <li key={b.id} className="flex flex-col gap-3 rounded-lg border border-line bg-bg p-4 shadow-card">
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div className="min-w-0">
-              <h2 className="text-base font-semibold text-ink">{b.nome}</h2>
-              <p className="text-xs text-muted">{resumo.join(" · ")}</p>
-            </div>
-            <Selo tom={novas.total > 0 ? "accent" : "neutro"}>
-              {novas.total === 0 ? "Nada novo" : `${novas.total} ${novas.total === 1 ? "nova" : "novas"}`}
-            </Selo>
+    <>
+      {erro === "dados" && <Alerta>Dê um nome ao alerta e preencha pelo menos um filtro (termos, UF, município, modalidade ou valor).</Alerta>}
+      {(ok === "criado" || ok === "editado") && (
+        <p role="status" className="rounded-md bg-success-soft px-3 py-2 text-sm text-success">
+          {ok === "criado" ? "Alerta criado. Você será avisado das próximas licitações que casarem." : "Alerta atualizado."}
+        </p>
+      )}
+
+      {emEdicao ? (
+        <section aria-labelledby="titulo-editar" className="flex flex-col gap-3 rounded-lg border border-line bg-surface p-4">
+          <h2 id="titulo-editar" className="text-base font-semibold">
+            Editar alerta
+          </h2>
+          <FormularioAlerta tipo="busca" alerta={emEdicao} modalidades={modalidades} rotuloEnviar="Salvar alterações" />
+        </section>
+      ) : (
+        <details className="rounded-lg border border-line bg-surface p-4" open={alertas.length === 0 || erro === "dados"}>
+          <summary className="cursor-pointer text-base font-semibold text-ink">Novo alerta</summary>
+          <div className="mt-3">
+            <FormularioAlerta tipo="busca" modalidades={modalidades} rotuloEnviar="Criar alerta" />
           </div>
-
-          {novas.linhas.length > 0 && (
-            <ul className="flex flex-col divide-y divide-line rounded-md border border-line">
-              {novas.linhas.slice(0, 3).map((l) => (
-                <li key={l.numeroControle} className="px-3 py-2">
-                  <Link
-                    href={`/licitacao/${l.cnpj}/${l.ano}/${l.sequencial}`}
-                    className="line-clamp-1 text-sm text-ink hover:text-accent hover:underline"
-                  >
-                    {l.objeto}
-                  </Link>
-                  <p className="text-xs text-muted">
-                    {l.orgao} · {l.uf} · {formatarValor(l.valorCentavos)}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <div className="flex flex-wrap items-center gap-2">
-            {novas.total > 0 && (
-              <Link
-                href={montarHref(f.atuais, { desde: b.vistoEm.toISOString() })}
-                className="inline-flex h-8 items-center rounded-md bg-accent px-3 text-xs font-semibold text-on-accent hover:bg-accent-hover"
-              >
-                Ver as {novas.total} novas
-              </Link>
-            )}
-            <Link
-              href={montarHref(f.atuais, { desde: null })}
-              className="inline-flex h-8 items-center rounded-md px-3 text-xs font-semibold text-accent hover:bg-accent-soft"
-            >
-              Ver todas
+          <p className="mt-3 text-xs text-muted">
+            Também dá para criar pela{" "}
+            <Link href="/buscar" className="font-semibold text-accent hover:underline">
+              busca
             </Link>
-            {novas.total > 0 && (
-              <form action={acaoMarcarBuscaVista}>
-                <input type="hidden" name="id" value={b.id} />
-                <Botao type="submit" variante="secundario" tamanho="sm" icone={Check}>
-                  Marcar como vistas
-                </Botao>
-              </form>
-            )}
-            <form action={acaoRemoverBusca} className="ml-auto">
-              <input type="hidden" name="id" value={b.id} />
-              <Botao type="submit" variante="fantasma" tamanho="sm" icone={Trash2}>
-                Excluir<span className="sr-only"> o alerta {b.nome}</span>
-              </Botao>
-            </form>
-          </div>
-          <p className="text-xs text-muted">Visto pela última vez em {formatoDataHora.format(b.vistoEm)}</p>
-        </li>
-      ))}
-    </ul>
+            : aplique os filtros e clique em “Salvar alerta”.
+          </p>
+        </details>
+      )}
+
+      {alertas.length === 0 ? (
+        <EstadoVazio
+          icone={BellOff}
+          titulo="Nenhum alerta ainda"
+          texto="Crie um alerta acima ou salve uma busca. As licitações novas que casarem aparecem aqui e no sino."
+        />
+      ) : (
+        <ul className="flex flex-col gap-3">
+          {alertas.map((b) => {
+            const novos = naoLidos.filter((a) => a.alertaId === b.id);
+            const { atuais } = lerFiltros(b.parametros);
+            return (
+              <li key={b.id} className="flex flex-col gap-3 rounded-lg border border-line bg-bg p-4 shadow-card">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <h2 className="text-base font-semibold text-ink">{b.nome}</h2>
+                    <p className="text-xs text-muted">{resumoDoAlerta(b.parametros, nomesModalidade).join(" · ")}</p>
+                  </div>
+                  <div className="flex gap-1.5">
+                    {!b.ativo && <Selo tom="aviso">Pausado</Selo>}
+                    <Selo tom={b.naoLidos > 0 ? "accent" : "neutro"}>
+                      {b.naoLidos === 0 ? "Nada novo" : `${b.naoLidos} ${b.naoLidos === 1 ? "novo" : "novos"}`}
+                    </Selo>
+                  </div>
+                </div>
+
+                {novos.length > 0 && <ListaAvisos avisos={novos.slice(0, 3)} />}
+
+                <div className="flex flex-wrap items-center gap-1">
+                  {b.naoLidos > 0 && (
+                    <form action={acaoMarcarBuscaVista}>
+                      <input type="hidden" name="id" value={b.id} />
+                      <Botao type="submit" variante="secundario" tamanho="sm" icone={Check}>
+                        Marcar como lidos
+                      </Botao>
+                    </form>
+                  )}
+                  <Link href={montarHref(atuais, { desde: null })} className={linkAcao}>
+                    Ver a busca
+                  </Link>
+                  <Link href={`/alertas?historico=${b.id}#historico`} className={linkAcao}>
+                    <History aria-hidden className="size-3.5" />
+                    Histórico ({b.totalAvisos})
+                  </Link>
+                  <Link href={`/alertas?editar=${b.id}`} className={linkAcao}>
+                    <Pencil aria-hidden className="size-3.5" />
+                    Editar<span className="sr-only"> o alerta {b.nome}</span>
+                  </Link>
+                  <form action={acaoDefinirAlertaAtivo}>
+                    <input type="hidden" name="id" value={b.id} />
+                    <input type="hidden" name="ativo" value={b.ativo ? "0" : "1"} />
+                    <Botao type="submit" variante="fantasma" tamanho="sm" icone={b.ativo ? Pause : Play}>
+                      {b.ativo ? "Pausar" : "Retomar"}
+                      <span className="sr-only"> o alerta {b.nome}</span>
+                    </Botao>
+                  </form>
+                  <form action={acaoRemoverBusca} className="ml-auto">
+                    <input type="hidden" name="id" value={b.id} />
+                    <Botao type="submit" variante="fantasma" tamanho="sm" icone={Trash2}>
+                      Excluir<span className="sr-only"> o alerta {b.nome}</span>
+                    </Botao>
+                  </form>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {comHistorico && (
+        <section id="historico" aria-labelledby="titulo-historico" className="flex flex-col gap-2">
+          <h2 id="titulo-historico" className="text-base font-semibold">
+            Histórico de avisos · {comHistorico.nome}
+          </h2>
+          <ListaAvisos avisos={avisosDoHistorico} />
+        </section>
+      )}
+    </>
   );
 }

@@ -6,7 +6,7 @@ import { UFS } from "@/lib/dados/perfil";
 export type ParametrosUrl = Record<string, string | string[] | undefined>;
 
 /** Parâmetros que uma busca salva guarda (pagina e desde ficam de fora). */
-export const CHAVES_SALVAS = ["q", "encerra", "ramo", "uf", "mod", "vmin", "vmax", "ader"] as const;
+export const CHAVES_SALVAS = ["q", "encerra", "ramo", "uf", "mun", "mod", "vmin", "vmax", "ader"] as const;
 
 function primeiro(valor: string | string[] | undefined) {
   return (Array.isArray(valor) ? valor[0] : valor) ?? "";
@@ -18,6 +18,7 @@ export function lerFiltros(parametros: ParametrosUrl) {
   const ramo = primeiro(parametros.ramo) === "1";
   const ufParam = primeiro(parametros.uf).toUpperCase();
   const uf = (UFS as readonly string[]).includes(ufParam) ? ufParam : null;
+  const municipio = primeiro(parametros.mun).trim().replace(/\s+/g, " ").slice(0, 80) || null;
   const modalidade = Number.parseInt(primeiro(parametros.mod), 10) || null;
   const reais = (v: string) => {
     const n = Number.parseInt(v.replace(/\D/g, ""), 10);
@@ -37,13 +38,14 @@ export function lerFiltros(parametros: ParametrosUrl) {
     encerra: encerra ? "7" : "",
     ramo: ramo ? "1" : "",
     uf: uf ?? "",
+    mun: municipio ?? "",
     mod: modalidade ? String(modalidade) : "",
     vmin: valorMin == null ? "" : String(valorMin),
     vmax: valorMax == null ? "" : String(valorMax),
     ader: aderencia ? String(aderencia) : "",
     desde: desde ? desde.toISOString() : "",
   };
-  return { q, encerra, ramo, uf, modalidade, valorMin, valorMax, aderencia, pagina, desde, atuais };
+  return { q, encerra, ramo, uf, municipio, modalidade, valorMin, valorMax, aderencia, pagina, desde, atuais };
 }
 
 export function montarHref(atuais: Record<string, string>, mudanca: Record<string, string | null> = {}) {

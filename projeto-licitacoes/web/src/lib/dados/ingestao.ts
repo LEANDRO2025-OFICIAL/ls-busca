@@ -1,4 +1,5 @@
 import { and, asc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
+import { gerarAvisos } from "./alertas";
 import type { Db } from "./db";
 import { buscarPropostasAbertas, paraLinhaLicitacao, type CompraPncp } from "./pncp";
 import { ingestaoFatia, licitacao, modalidade } from "./schema";
@@ -49,12 +50,14 @@ export type ResultadoIngestao = {
   registros: number;
   erros: string[];
   parouPorTempo: boolean;
+  /** Avisos novos gerados para os alertas e interesses (0 se a etapa de avisos falhou). */
+  avisos: number;
 };
 
 /** Processa fatias pendentes até acabar o orçamento de tempo; retoma de onde parou na próxima chamada. */
 export async function ingerir(db: Db, opcoes: { orcamentoMs: number }): Promise<ResultadoIngestao> {
   const limite = Date.now() + opcoes.orcamentoMs;
-  const resultado: ResultadoIngestao = { fatias: 0, paginas: 0, registros: 0, erros: [], parouPorTempo: false };
+  const resultado: ResultadoIngestao = { fatias: 0, paginas: 0, registros: 0, erros: [], parouPorTempo: false, avisos: 0 };
 
   while (Date.now() < limite) {
     const [fatia] = await db
@@ -124,7 +127,18 @@ export async function ingerir(db: Db, opcoes: { orcamentoMs: number }): Promise<
         .where(eq(ingestaoFatia.id, fatia.id));
     }
   }
+  resultado.avisos = await avisarSemDerrubar(db);
   return resultado;
+}
+
+/** Casa o que entrou com os alertas. Um erro aqui fica no log e não invalida a ingestão já gravada. */
+export async function avisarSemDerrubar(db: Db): Promise<number> {
+  try {
+    return (await gerarAvisos(db)).avisos;
+  } catch (erro) {
+    console.error("[alertas] Falha ao gerar avisos:", erro);
+    return 0;
+  }
 }
 
 async function gravarPagina(db: Db, compras: CompraPncp[]) {

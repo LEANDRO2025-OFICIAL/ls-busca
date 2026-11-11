@@ -1,10 +1,9 @@
 import Link from "next/link";
 import { connection } from "next/server";
 import { Bell } from "lucide-react";
-import { listarBuscasSalvas, novidadesDoAlerta } from "@/lib/dados/alertas";
+import { avisosNaoLidosPorAlerta } from "@/lib/dados/alertas";
 import { obterDb } from "@/lib/dados/db";
 import { resumoDocumentos } from "@/lib/dados/documentos";
-import { obterPerfil } from "@/lib/dados/perfil";
 import { listarPrazos } from "@/lib/dados/prazos";
 import { exigirOrganizacao } from "@/lib/sessao";
 
@@ -18,22 +17,16 @@ const formatoDataHora = new Intl.DateTimeFormat("pt-BR", {
 const QUARENTA_E_OITO_HORAS = 48 * 3_600_000;
 
 /**
- * Sino da barra superior. Notificações = buscas salvas com licitações novas desde que foram vistas
+ * Sino da barra superior. Notificações = avisos não lidos dos alertas e dos interesses da comunidade
  * + prazos das licitações acompanhadas nas próximas 48 h. Calculado ao carregar a página (sem consulta periódica).
  */
 export async function Sino() {
   await connection();
-  const { organizacaoId } = await exigirOrganizacao();
+  const { organizacaoId, usuarioId } = await exigirOrganizacao();
   const db = await obterDb();
   const agora = new Date();
 
-  const perfil = await obterPerfil(db, organizacaoId);
-  const buscas = (await listarBuscasSalvas(db, organizacaoId)).slice(0, 10);
-  const alertas: { id: string; nome: string; total: number }[] = [];
-  for (const b of buscas) {
-    const { novas } = await novidadesDoAlerta(db, organizacaoId, perfil, b);
-    if (novas.total > 0) alertas.push({ id: b.id, nome: b.nome, total: novas.total });
-  }
+  const alertas = await avisosNaoLidosPorAlerta(db, organizacaoId, usuarioId);
   const prazos = (await listarPrazos(db, organizacaoId))
     .filter((p) => p.quando >= agora && p.quando.getTime() - agora.getTime() <= QUARENTA_E_OITO_HORAS)
     .slice(0, 5);
@@ -64,10 +57,14 @@ export async function Sino() {
           <ul className="flex flex-col">
             {alertas.map((a) => (
               <li key={a.id}>
-                <Link href="/alertas" className="flex flex-col gap-0.5 rounded-md px-2 py-2 hover:bg-surface">
+                <Link
+                  href={a.tipo === "comunidade" ? "/comunidade" : "/alertas"}
+                  className="flex flex-col gap-0.5 rounded-md px-2 py-2 hover:bg-surface"
+                >
                   <span className="line-clamp-1 text-sm font-medium text-ink">{a.nome}</span>
                   <span className="text-xs text-muted">
-                    {a.total} {a.total === 1 ? "licitação nova" : "licitações novas"} nesta busca
+                    {a.total} {a.total === 1 ? "aviso novo" : "avisos novos"}
+                    {a.tipo === "comunidade" ? " · grandes licitações" : " neste alerta"}
                   </span>
                 </Link>
               </li>
