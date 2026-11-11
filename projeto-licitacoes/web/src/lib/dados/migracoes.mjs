@@ -19,8 +19,9 @@ export async function migracoesPendentes(banco, pasta = pastaDeMigracoes()) {
     aplicada_em timestamptz not null default now()
   )`);
   const aplicadas = new Set((await banco.consulta("select nome from _migracao")).map((r) => r.nome));
+  // turbopackIgnore: a pasta vem por parâmetro; sem isto o empacotador rastreia o projeto inteiro.
   return fs
-    .readdirSync(pasta)
+    .readdirSync(/* turbopackIgnore: true */ pasta)
     .filter((a) => a.endsWith(".sql"))
     .sort()
     .filter((a) => !aplicadas.has(a));
@@ -30,7 +31,7 @@ export async function migracoesPendentes(banco, pasta = pastaDeMigracoes()) {
 export async function aplicarMigracoes(banco, pasta = pastaDeMigracoes()) {
   const pendentes = await migracoesPendentes(banco, pasta);
   for (const arquivo of pendentes) {
-    const conteudo = fs.readFileSync(path.join(pasta, arquivo), "utf8");
+    const conteudo = fs.readFileSync(path.join(/* turbopackIgnore: true */ pasta, arquivo), "utf8");
     await banco.emTransacao(async (tx) => {
       await tx.exec(conteudo);
       await tx.consulta("insert into _migracao (nome) values ($1)", [arquivo]);

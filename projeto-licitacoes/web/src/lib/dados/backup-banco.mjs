@@ -6,6 +6,9 @@
 //  - "dump": .tar.gz gerado pelo próprio PGlite (dumpDataDir) com o banco aberto. O arquivo é
 //    montado em memória, então só é usado em bancos pequenos (ver BACKUP_DUMP_MAX_MB).
 //
+// Quando são feitas (db.ts e scripts): antes de migração nova, antes de redefinir senha, antes de
+// restaurar, e uma periódica (BACKUP_INTERVALO_HORAS, padrão 24; 0 desliga) que antecede a ingestão.
+//
 // Ficam em <pasta-pai>/backups (padrão: web/.data/backups), com carimbo de data no nome.
 // Cada cópia ocupa o mesmo espaço do banco: a retenção padrão é 3 (BACKUP_RETENCAO).
 import fs from "node:fs";

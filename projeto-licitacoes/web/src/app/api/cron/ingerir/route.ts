@@ -1,4 +1,4 @@
-import { obterDb } from "@/lib/dados/db";
+import { copiaAntesDeEscritaMassiva, obterDb } from "@/lib/dados/db";
 import { ingerir, MODALIDADES_COM_PROPOSTA, semear } from "@/lib/dados/ingestao";
 
 export async function GET(request: Request) {
@@ -10,6 +10,8 @@ export async function GET(request: Request) {
   }
 
   const db = await obterDb();
+  // Ingestão é escrita em lote: garante uma cópia de segurança recente antes (no máximo uma por período).
+  await copiaAntesDeEscritaMassiva("ingestao");
   // Brasil inteiro, uma fatia por modalidade. Cada chamada processa o que couber no
   // orçamento de tempo; a próxima retoma de onde parou.
   for (const modalidade of MODALIDADES_COM_PROPOSTA) {

@@ -94,26 +94,35 @@ const dormir = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0,
 // Estado por processo (sobrevive ao recarregamento de módulos do Next em desenvolvimento).
 const estado = (globalThis.__lsTravaBanco ??= { travas: new Map(), fechamentos: new Set(), ganchos: false, encerrando: false });
 
-function soltarTodas() {
-  for (const [arquivo] of estado.travas) {
-    try {
-      const dono = JSON.parse(fs.readFileSync(arquivo, "utf8"));
-      if (dono.pid === process.pid) fs.unlinkSync(arquivo);
-    } catch {
-      // já não existe, ou não é mais nossa: nada a fazer
-    }
+function apagarSeForNossa(arquivo) {
+  try {
+    const dono = JSON.parse(fs.readFileSync(arquivo, "utf8"));
+    if (dono.pid === process.pid && dono.hostname === os.hostname()) fs.unlinkSync(arquivo);
+  } catch {
+    // já não existe, ou não é mais nossa: nada a fazer
   }
+}
+
+function soltarTodas() {
+  for (const arquivo of estado.travas.keys()) apagarSeForNossa(arquivo);
   estado.travas.clear();
 }
 
-async function encerrar(codigo) {
+/**
+ * Desligamento limpo: roda os fechamentos registrados (PGlite.close grava o checkpoint), solta
+ * as travas e, se `codigo` não for null, encerra o processo com ele.
+ */
+export async function encerrarProcesso(codigo = 0) {
   if (estado.encerrando) return;
   estado.encerrando = true;
-  // Fecha o PGlite (grava o checkpoint) antes de soltar a trava. Limite de tempo: o Windows
-  // mata o processo cerca de 10 s depois de a janela ser fechada.
+  // Limite de tempo: o Windows mata o processo poucos segundos depois de a janela ser fechada.
   const fechamentos = [...estado.fechamentos].map((f) => Promise.resolve().then(f).catch(() => {}));
-  await Promise.race([Promise.all(fechamentos), new Promise((r) => setTimeout(r, 8000))]);
+  estado.fechamentos.clear();
+  let relogio;
+  await Promise.race([Promise.all(fechamentos), new Promise((r) => (relogio = setTimeout(r, 4000)))]);
+  clearTimeout(relogio);
   soltarTodas();
+  estado.encerrando = false;
   if (codigo != null) process.exit(codigo);
 }
 
@@ -123,12 +132,13 @@ function instalarGanchos() {
   // "exit" é síncrono: só dá tempo de apagar o arquivo. É a rede de segurança dos demais.
   process.on("exit", soltarTodas);
   process.on("beforeExit", () => {
-    if (estado.travas.size > 0 || estado.fechamentos.size > 0) void encerrar(null);
+    if (estado.travas.size > 0 || estado.fechamentos.size > 0) void encerrarProcesso(null);
   });
   // SIGHUP: no Windows é o que o Node recebe quando a janela do console é fechada.
+  // SIGBREAK: Ctrl+Break no Windows.
   for (const [sinal, codigo] of [["SIGINT", 130], ["SIGTERM", 143], ["SIGHUP", 129], ["SIGBREAK", 149]]) {
     try {
-      process.on(sinal, () => void encerrar(codigo));
+      process.on(sinal, () => void encerrarProcesso(codigo));
     } catch {
       // sinal inexistente nesta plataforma
     }
@@ -142,9 +152,80 @@ export function aoEncerrar(fn) {
   return () => estado.fechamentos.delete(fn);
 }
 
+/** Porta em que este processo serve (PORT, ou -p/--port da linha de comando do `next`). */
+export function portaDoProcesso() {
+  if (process.env.PORT) return process.env.PORT;
+  const args = process.argv;
+  for (let i = 0; i < args.length; i++) {
+    if ((args[i] === "-p" || args[i] === "--port") && args[i + 1]) return args[i + 1];
+    const m = /^--port=(\d+)$/.exec(args[i]);
+    if (m) return m[1];
+  }
+  return null;
+}
+
+function registrar(arquivo) {
+  const trava = {
+    arquivo,
+    soltar() {
+      if (estado.travas.get(arquivo) !== trava) return;
+      estado.travas.delete(arquivo);
+      apagarSeForNossa(arquivo);
+    },
+  };
+  estado.travas.set(arquivo, trava);
+  instalarGanchos();
+  return trava;
+}
+
+/**
+ * Remove uma trava morta (órfã ou ilegível). Só quem segura o arquivo "<trava>.recuperando"
+ * (também criado com "wx") pode apagar uma trava alheia, e reconfere a situação depois de
+ * tomá-lo: assim dois processos que encontram a mesma trava órfã nunca apagam a trava nova
+ * um do outro.
+ */
+function removerTravaMorta(pasta, arquivo, aviso, aceitarIlegivel) {
+  const mutex = `${arquivo}.recuperando`;
+  let fd;
+  try {
+    fd = fs.openSync(mutex, "wx");
+  } catch (erro) {
+    if (erro.code !== "EEXIST") throw erro;
+    // Outro processo está recuperando agora. Mutex abandonado (processo morto no meio) sai em 10 s.
+    try {
+      if (Date.now() - fs.statSync(mutex).mtimeMs > 10_000) fs.unlinkSync(mutex);
+    } catch {
+      // já saiu
+    }
+    dormir(50);
+    return;
+  }
+  try {
+    const { estado: situacao, dono } = situacaoDaTrava(pasta);
+    if (situacao === "orfa" || (situacao === "ilegivel" && aceitarIlegivel)) {
+      fs.unlinkSync(arquivo);
+      aviso(
+        situacao === "orfa"
+          ? `[banco] Trava órfã encontrada (${descreverDono(dono)} não existe mais). Assumindo o banco; ` +
+              "o Postgres embutido refaz sozinho o que ficou pendente no desligamento anterior."
+          : "[banco] Arquivo de trava ilegível removido.",
+      );
+    }
+  } catch (erro) {
+    if (erro.code !== "ENOENT") throw erro;
+  } finally {
+    fs.closeSync(fd);
+    try {
+      fs.unlinkSync(mutex);
+    } catch {
+      // já removido
+    }
+  }
+}
+
 /**
  * Toma a trava da pasta ou lança ErroBancoEmUso. Nunca abre nem toca a pasta de dados.
- * - trava inexistente: cria (atômico);
+ * - trava inexistente: cria (atômico, flag "wx");
  * - trava deste mesmo processo: reaproveita;
  * - dono morto (ou computador reiniciado): assume, com aviso;
  * - dono vivo: recusa dizendo quem segura o banco.
@@ -162,7 +243,7 @@ export function adquirirTrava(pasta, opcoes = {}) {
   const conteudo = JSON.stringify(
     {
       pid: process.pid,
-      porta: opcoes.porta ?? process.env.PORT ?? null,
+      porta: opcoes.porta ?? portaDoProcesso(),
       hostname: os.hostname(),
       inicio: new Date().toISOString(),
       rotulo: opcoes.rotulo ?? path.basename(process.argv[1] ?? "node"),
@@ -173,7 +254,8 @@ export function adquirirTrava(pasta, opcoes = {}) {
   );
 
   let ilegivelDesde = null;
-  for (let tentativa = 0; tentativa < 60; tentativa++) {
+  const limite = Date.now() + 15_000;
+  while (Date.now() < limite) {
     try {
       const fd = fs.openSync(arquivo, "wx");
       try {
@@ -182,21 +264,7 @@ export function adquirirTrava(pasta, opcoes = {}) {
       } finally {
         fs.closeSync(fd);
       }
-      instalarGanchos();
-      const trava = {
-        arquivo,
-        soltar() {
-          if (estado.travas.get(arquivo) !== trava) return;
-          estado.travas.delete(arquivo);
-          try {
-            if (JSON.parse(fs.readFileSync(arquivo, "utf8")).pid === process.pid) fs.unlinkSync(arquivo);
-          } catch {
-            // já removida
-          }
-        },
-      };
-      estado.travas.set(arquivo, trava);
-      return trava;
+      return registrar(arquivo);
     } catch (erro) {
       if (erro.code !== "EEXIST") throw erro;
     }
@@ -205,18 +273,16 @@ export function adquirirTrava(pasta, opcoes = {}) {
     if (situacao === "livre") continue; // sumiu entre o open e a leitura: tenta de novo
     if (situacao === "viva") {
       if (dono.pid === process.pid && dono.hostname === os.hostname()) {
-        // Trava nossa de uma carga anterior deste módulo: reaproveita.
+        // Trava com o nosso PID que este processo não registrou: sobra de um processo morto cujo
+        // número foi reaproveitado para nós. É nossa.
         fs.writeFileSync(arquivo, conteudo);
-        const trava = { arquivo, soltar: soltarTodas };
-        estado.travas.set(arquivo, trava);
-        instalarGanchos();
-        return trava;
+        return registrar(arquivo);
       }
       throw new ErroBancoEmUso(
         `O banco em ${path.resolve(pasta)} já está aberto por outro processo (${descreverDono(dono)}). ` +
           "Dois processos na mesma pasta corrompem o banco, então este não vai abrir. " +
           "Feche o outro (a janela \"LS Busca\", um `next dev` ou um script) e tente de novo. " +
-          `Arquivo de trava: ${arquivo}`,
+          `Arquivo de trava: ${arquivo} (só apague à mão se tiver certeza de que nenhum programa do LS Busca está aberto).`,
         dono,
       );
     }
@@ -228,21 +294,7 @@ export function adquirirTrava(pasta, opcoes = {}) {
         continue;
       }
     }
-    // Órfã (ou ilegível há tempo demais). Tira do caminho com rename, que é atômico: se dois
-    // processos tentarem recuperar ao mesmo tempo, só um consegue e o outro volta ao início.
-    const descarte = `${arquivo}.orfa-${process.pid}-${Date.now()}`;
-    try {
-      fs.renameSync(arquivo, descarte);
-      fs.unlinkSync(descarte);
-      aviso(
-        situacao === "orfa"
-          ? `[banco] Trava órfã encontrada (${descreverDono(dono)} não existe mais). Assumindo o banco; ` +
-              "o Postgres embutido refaz sozinho o que ficou pendente no desligamento anterior."
-          : "[banco] Arquivo de trava ilegível removido.",
-      );
-    } catch (erro) {
-      if (erro.code !== "ENOENT") throw erro;
-    }
+    removerTravaMorta(pasta, arquivo, aviso, ilegivelDesde != null && Date.now() - ilegivelDesde >= 2000);
   }
   throw new ErroBancoEmUso(`Não foi possível tomar a trava do banco em ${arquivo} (disputa com outro processo).`, null);
 }
@@ -259,19 +311,25 @@ export async function portaOcupada(porta, host = "127.0.0.1") {
   });
 }
 
+/** Portas em que o LS Busca costuma servir (produção e `next dev`). LS_BUSCA_PORTAS troca a lista. */
+export function portasDoServidor(env = process.env) {
+  const lista = String(env.LS_BUSCA_PORTAS ?? "")
+    .split(",")
+    .map((p) => Number.parseInt(p, 10))
+    .filter((p) => Number.isInteger(p) && p > 0 && p < 65536);
+  return lista.length ? lista : [3000, 3100];
+}
+
 /**
  * Para scripts: confere a trava E as portas do servidor antes de qualquer coisa.
- * Devolve a lista de motivos para não abrir o banco (vazia = pode abrir).
+ * Devolve a lista de motivos para não abrir o banco (vazia = pode abrir). Não cria nem abre nada.
  */
-export async function motivosParaNaoAbrir(pasta, portas = [3000, 3100]) {
+export async function motivosParaNaoAbrir(pasta, portas = portasDoServidor()) {
   const motivos = [];
   const { estado: situacao, dono } = situacaoDaTrava(pasta);
   if (situacao === "viva") motivos.push(`o banco está travado por ${descreverDono(dono)}`);
-  // PGLITE_IGNORAR_PORTAS=1 existe só para os testes automatizados (a trava continua valendo).
-  if (process.env.PGLITE_IGNORAR_PORTAS !== "1") {
-    for (const porta of portas) {
-      if (await portaOcupada(porta)) motivos.push(`há um programa respondendo na porta ${porta} (provavelmente o LS Busca)`);
-    }
+  for (const porta of portas) {
+    if (await portaOcupada(porta)) motivos.push(`há um programa respondendo na porta ${porta} (provavelmente o LS Busca)`);
   }
   return motivos;
 }

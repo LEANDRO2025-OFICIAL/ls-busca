@@ -18,6 +18,9 @@ export function processoVivo(pid: number): boolean;
 export function lerTrava(pasta: string): DonoDaTrava | { ilegivel: true } | null;
 export function situacaoDaTrava(pasta: string): { estado: "livre" | "viva" | "orfa" | "ilegivel"; dono: DonoDaTrava | null };
 export function descreverDono(dono: DonoDaTrava | null): string;
+export function encerrarProcesso(codigo?: number | null): Promise<void>;
+export function portaDoProcesso(): string | null;
+export function portasDoServidor(env?: Record<string, string | undefined>): number[];
 export function aoEncerrar(fn: () => unknown | Promise<unknown>): () => void;
 export function adquirirTrava(
   pasta: string,
