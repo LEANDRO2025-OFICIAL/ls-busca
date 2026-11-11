@@ -82,10 +82,44 @@ O banco embutido serve para experimentar. Para uso diário, um Postgres real agu
 5. Crie a primeira conta em "Criar conta" e deixe a atualização do PNCP rodar para repopular as licitações.
 6. Os dados antigos (contas, funil) continuam em `.data/pglite` e **não** são copiados automaticamente. Guarde a pasta; para voltar ao banco embutido, basta apagar a linha `DATABASE_URL` do `.env.local`.
 
+## Alertas e avisos
+
+- **Alertas** (`/alertas`): qualquer busca (termos, UF, município, modalidade, faixa de valor) pode ser salva como alerta, pela tela de busca ("Salvar alerta") ou pelo formulário da própria página. Dá para pausar, retomar, editar e excluir; cada alerta tem o histórico dos avisos gerados.
+- A cada ingestão do PNCP, as licitações que **entraram** na base são casadas com os alertas ativos (`src/lib/casamento.ts`) e geram um **aviso** na tela (sino e página). Cada licitação é avisada uma única vez por alerta (chave única no banco).
+- **Webhook opcional**: com `ALERTA_WEBHOOK_URL` definido, os avisos ainda não entregues (das últimas 24 h) são enviados por `POST` com `content-type: application/json`, em remessas de até 50. Tempo limite de `ALERTA_WEBHOOK_TIMEOUT_MS` (padrão 5000). Resposta fora de 2xx, demora ou erro de rede **não derrubam a ingestão**: o aviso continua na tela e o envio é tentado de novo na próxima passada. Não há envio de e-mail.
+
+```json
+{
+  "evento": "avisos.novos",
+  "enviadoEm": "2026-11-10T12:05:00.000Z",
+  "avisos": [
+    {
+      "id": "uuid do aviso",
+      "criadoEm": "2026-11-10T12:00:00.000Z",
+      "motivo": "contém “cimento”; UF MS",
+      "alerta": { "id": "uuid", "nome": "Cimento em MS", "tipo": "busca" },
+      "licitacao": {
+        "numeroControle": "…",
+        "objeto": "…",
+        "orgao": "…",
+        "uf": "MS",
+        "municipio": "Dourados",
+        "modalidade": "Pregão - Eletrônico",
+        "valorEstimado": 123456.78,
+        "encerramento": "2026-11-20T12:00:00.000Z",
+        "caminho": "/licitacao/<cnpj>/<ano>/<sequencial>"
+      }
+    }
+  ]
+}
+```
+
+`alerta.tipo` é `busca` (alerta) ou `comunidade` (interesse no mural de grandes licitações). `valorEstimado` (em reais), `municipio` e `encerramento` podem vir `null`.
+
 ## Testes
 
 ```bash
 npm test
 ```
 
-Roda `node --test` sobre `tests/*.test.mjs` (trava, dois processos, `kill -9`, backup/restauração, script de senha), sempre em pasta temporária fora do repositório.
+Roda `node --test` sobre `tests/*.test.mjs` (trava, dois processos, `kill -9`, backup/restauração, script de senha, fases do funil, casamento alerta × licitação, calendário `.ics`), sempre em pasta temporária fora do repositório.
