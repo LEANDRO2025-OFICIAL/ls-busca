@@ -12,7 +12,7 @@ export function Pipeline({ fases, encerradas, total }: { fases: ResumoFase[]; en
   const maior = Math.max(1, ...fases.map((f) => f.alcancaram));
   return (
     <div className="flex flex-col gap-3">
-      <ol aria-label="Fases do funil" className="flex items-stretch gap-1 overflow-x-auto pb-2">
+      <ol aria-label="Fases do funil" className="relative flex items-stretch gap-1 overflow-x-auto pb-2">
         {fases.map((f, i) => (
           <li key={f.id} className="flex shrink-0 items-stretch gap-1">
             <div data-fase={f.id} className="flex w-44 flex-col gap-2 rounded-lg border border-line bg-bg p-3 shadow-card">

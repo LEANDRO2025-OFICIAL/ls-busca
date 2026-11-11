@@ -121,6 +121,11 @@ O banco embutido serve para experimentar. Para uso diário, um Postgres real agu
 - `/comunidade` é um mural **interno** com as licitações em aberto de valor estimado a partir de `COMUNIDADE_VALOR_MINIMO` (em reais; padrão R$ 10.000.000), com filtros por UF, município, modalidade e valor mínimo (o filtro só sobe o piso).
 - Cada pessoa cadastra os próprios **interesses** (faixa de valor, UF, município, modalidade). Eles usam o mesmo casamento dos alertas: na ingestão, a licitação nova que casa gera um aviso na tela (sino e histórico da página) e entra no mesmo webhook, com `alerta.tipo = "comunidade"`.
 
+## Calendário de prazos
+
+- `/calendario` mostra os prazos das licitações acompanhadas em visão **mensal** ou **semanal** (alternáveis), com legenda por tipo: proposta (fim do envio de propostas do PNCP), sessão, recurso e outros. O tipo dos prazos criados pela equipe vem do título ("Sessão pública", "Recurso"...). Clicar em um prazo abre a licitação.
+- **Exportar .ics** (`/calendario/exportar`) baixa os mesmos prazos em iCalendar, para importar em qualquer aplicativo de agenda. A lógica fica em `src/lib/agenda.ts`.
+
 ## Testes
 
 ```bash
