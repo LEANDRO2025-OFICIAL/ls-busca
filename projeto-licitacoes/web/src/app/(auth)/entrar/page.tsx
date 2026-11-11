@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { acaoEntrar } from "@/app/acoes-auth";
+import { AlternarTema } from "@/components/ui/tema";
 import { Alerta, Botao, CampoTexto } from "@/components/ui/basicos";
 
 export const metadata: Metadata = { title: "Entrar" };
@@ -21,7 +22,8 @@ async function Erro({ searchParams }: { searchParams: Parametros }) {
 
 export default function PaginaEntrar({ searchParams }: { searchParams: Parametros }) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-surface px-4 py-10">
+    <main className="relative flex min-h-screen items-center justify-center bg-surface px-4 py-10">
+      <AlternarTema className="absolute top-4 right-4" />
       <div className="flex w-full max-w-sm flex-col gap-4 rounded-lg border border-line bg-bg p-6 shadow-card">
         <p className="text-sm font-bold">
           LS Busca

@@ -8,6 +8,7 @@ import { BuscaUniversal } from "@/components/ui/busca-universal";
 import { Navegacao } from "@/components/ui/navegacao";
 import { NavegacaoApp } from "@/components/ui/navegacao-app";
 import { Sino } from "@/components/ui/sino";
+import { AlternarTema } from "@/components/ui/tema";
 import { buscarLicitacoes, filtrosDoRamo, inicioDasNovas } from "@/lib/dados/busca";
 import { obterDb } from "@/lib/dados/db";
 import { obterPerfil } from "@/lib/dados/perfil";
@@ -53,6 +54,7 @@ export default function LayoutApp({ children }: { children: ReactNode }) {
             <Suspense fallback={<span aria-hidden className="size-9" />}>
               <Sino />
             </Suspense>
+            <AlternarTema />
             <Acessibilidade />
           </div>
           {children}

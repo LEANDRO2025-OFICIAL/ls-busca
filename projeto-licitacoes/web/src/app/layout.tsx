@@ -25,10 +25,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="pt-BR" suppressHydrationWarning className={`${plexSans.variable} ${plexMono.variable} h-full antialiased`}>
       <head>
-        {/* Aplica os ajustes de leitura salvos (alto contraste, texto grande) antes da primeira pintura. */}
+        {/* Aplica o tema (salvo ou o do sistema) e os ajustes de leitura salvos antes da primeira pintura. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{var h=document.documentElement;if(localStorage.getItem("ls-contraste")==="alto")h.dataset.contraste="alto";if(localStorage.getItem("ls-texto")==="grande")h.dataset.texto="grande"}catch(e){}`,
+            __html: `(function(){var h=document.documentElement,t;try{t=localStorage.getItem("ls-tema")}catch(e){}if(t!=="dark"&&t!=="light")t=window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";h.dataset.theme=t})();try{var h=document.documentElement;if(localStorage.getItem("ls-contraste")==="alto")h.dataset.contraste="alto";if(localStorage.getItem("ls-texto")==="grande")h.dataset.texto="grande"}catch(e){}`,
           }}
         />
       </head>
