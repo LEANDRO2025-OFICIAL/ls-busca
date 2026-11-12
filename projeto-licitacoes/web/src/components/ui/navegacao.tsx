@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   Bell,
+  Bot,
   Briefcase,
   Building2,
   CalendarClock,
@@ -46,6 +47,7 @@ const GRUPOS: Grupo[] = [
       { href: "/funil", rotulo: "Funil", icone: Columns3 },
       { href: "/funil/prazos", rotulo: "Prazos", icone: CalendarClock },
       { href: "/calendario", rotulo: "Calendário", icone: CalendarDays },
+      { href: "/robo", rotulo: "Robô de lance", icone: Bot },
       { href: "/empresa", rotulo: "Perfil da empresa", icone: Briefcase },
       { href: "/inicio/ramo", rotulo: "Ramo da empresa", icone: Building2 },
       { href: "/documentos", rotulo: "Documentos", icone: FolderOpen },

@@ -418,7 +418,7 @@ export async function listarSimulacoes(db: Db, organizacaoId: string, configId: 
 export type SimulacaoCompleta = ResumoSimulacao & {
   acompanhamentoId: string | null;
   config: ConfigItem;
-  cenario: { semente: number; modo: Modo; concorrentes: { nome: string; perfil: string; lanceInicial: number; pisoProprio: number }[]; duracaoAbertaMs: number };
+  cenario: { semente: number; modo: Modo; meuLanceInicial?: number; concorrentes: { nome: string; perfil: string; lanceInicial: number; pisoProprio: number }[]; duracaoAbertaMs: number };
   linhaDoTempo: EventoSimulado[];
   decisoes: DecisaoGravada[];
 };

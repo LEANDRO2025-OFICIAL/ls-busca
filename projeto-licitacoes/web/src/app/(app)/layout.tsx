@@ -22,6 +22,7 @@ const ATALHOS_CELULAR = [
   { href: "/funil", rotulo: "Funil" },
   { href: "/funil/prazos", rotulo: "Prazos" },
   { href: "/calendario", rotulo: "Calendário" },
+  { href: "/robo", rotulo: "Robô de lance" },
   { href: "/alertas", rotulo: "Alertas" },
   { href: "/comunidade", rotulo: "Grandes licitações" },
   { href: "/documentos", rotulo: "Documentos" },
