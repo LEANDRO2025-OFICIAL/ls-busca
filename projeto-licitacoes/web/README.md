@@ -126,10 +126,40 @@ O banco embutido serve para experimentar. Para uso diário, um Postgres real agu
 - `/calendario` mostra os prazos das licitações acompanhadas em visão **mensal** ou **semanal** (alternáveis), com legenda por tipo: proposta (fim do envio de propostas do PNCP), sessão, recurso e outros. O tipo dos prazos criados pela equipe vem do título ("Sessão pública", "Recurso"...). Clicar em um prazo abre a licitação.
 - **Exportar .ics** (`/calendario/exportar`) baixa os mesmos prazos em iCalendar, para importar em qualquer aplicativo de agenda. A lógica fica em `src/lib/agenda.ts`.
 
+## Robô de lance (modo simulação)
+
+> **Modo simulação. Envio de lances a portais reais não está implementado.** Nada no LS Busca envia lance, abre navegador ou fala com sistema de compras. Todas as disputas são fictícias.
+
+**O que faz**
+
+- `/robo` lista as configurações, as licitações do funil ainda sem robô e o botão de **parada de emergência geral**.
+- `/robo/configurar/<id>` configura o robô de uma licitação do funil, item a item: proposta inicial, **piso** (menor preço) ou **desconto máximo** (maior desconto), estratégia, passo, limites e regras da disputa. Salvar exige revisão e confirmação explícita.
+- Estratégias: cobrir o melhor lance por passo fixo ou percentual; ficar em 1º com o menor passo aceito; ficar numa posição alvo (ex.: 2º); só lançar nos últimos N segundos (modo aberto com prorrogação); lance final único (modo aberto-fechado).
+- "Rodar simulação" disputa contra concorrentes fictícios (agressivo, conservador, que desiste cedo) com relógio virtual e semente: a mesma semente repete a mesma disputa. Suspensão e falhas de comunicação podem ser sorteadas. O resultado (`/robo/simulacao/<id>`) mostra posição final, menor valor atingido, margem sobre o piso, gráfico dos lances, classificação, eventos e a **trilha de decisões** com a regra e o motivo de cada passo.
+
+**Limites de segurança** (motor puro em `src/lib/robo/motor.ts`, sem rede nem relógio do sistema)
+
+- Sem piso o robô não inicia. Nenhuma decisão fica abaixo do piso (ou acima do desconto máximo). Se cobrir exigiria passar dele, o robô lança o piso exato, quando isso ainda cobre o melhor lance, ou para.
+- Valores sempre em inteiros (centavos, ou centésimos de ponto percentual), sem erro de ponto flutuante.
+- Respeita o intervalo mínimo entre os próprios lances e após o melhor lance, a diferença mínima sobre o próprio lance e sobre o melhor, a variação máxima por lance e o limite de lances por minuto. Os padrões (20 s, 3 s, R$ 0,01) são só valores iniciais: cada disputa tem os seus, configuráveis na tela.
+- Parada de emergência geral e por item: a decisão vira "parar" antes de qualquer outra regra. Acionar a geral também marca a parada de cada item; liberá-la **não** religa os itens.
+- Paradas automáticas: piso atingido, disputa encerrada ou suspensa, estado inconsistente (melhor lance ausente, relógio voltando, valores inválidos, posição incoerente) e N erros seguidos do conector.
+- ME/EPP: o empate ficto (até 5% acima do melhor lance) aparece só como aviso na decisão. O robô nunca age por causa dele.
+- A trilha de decisões é só de acréscimo: um gatilho no banco recusa alterar ou apagar linha avulsa (migração `0007_robo_lance.sql`).
+
+**O que falta para um conector real**
+
+O robô fala com a disputa pela interface `ConectorDeDisputa` (`src/lib/robo/conector.ts`: observar o estado, enviar lance). A única implementação é o simulador (`src/lib/robo/simulador.ts`). Os portais não oferecem API pública de lances, e um lance enviado vincula a empresa: um erro pode gerar proposta inexequível e sanção. Um conector real exigiria, para cada portal:
+
+1. Ler os termos de uso do portal e respeitá-los (automação pode ser proibida).
+2. Validar no **ambiente de treinamento** do portal, nunca em disputa real, com as regras de tempo e valor daquele sistema.
+3. Rodar **na máquina do usuário**, com o certificado e o acesso dele, nunca no servidor do LS Busca.
+4. Implementar `observar` e `enviarLance` com tratamento de erro, e manter os mesmos testes de propriedade do motor.
+
 ## Testes
 
 ```bash
 npm test
 ```
 
-Roda `node --test` sobre `tests/*.test.mjs` (trava, dois processos, `kill -9`, backup/restauração, script de senha, fases do funil, casamento alerta × licitação, calendário `.ics`), sempre em pasta temporária fora do repositório.
+Roda `node --test` sobre `tests/*.test.mjs` (trava, dois processos, `kill -9`, backup/restauração, script de senha, fases do funil, casamento alerta × licitação, calendário `.ics`, robô de lance: motor, simulador, formulário e migração), sempre em pasta temporária fora do repositório.
