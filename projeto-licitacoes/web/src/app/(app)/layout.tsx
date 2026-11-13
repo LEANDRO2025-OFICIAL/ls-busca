@@ -14,7 +14,8 @@ import { obterDb } from "@/lib/dados/db";
 import { situacaoDaOrganizacao } from "@/lib/dados/licenca";
 import { obterPerfil } from "@/lib/dados/perfil";
 import { tempoRestante } from "@/lib/licenca";
-import { exigirOrganizacao } from "@/lib/sessao";
+import { ehEmailDonoSistema, exigirOrganizacao } from "@/lib/sessao";
+import { ShieldCheck } from "lucide-react";
 
 const ATALHOS_CELULAR = [
   { href: "/inicio", rotulo: "Início" },
@@ -55,6 +56,9 @@ export default function LayoutApp({ children }: { children: ReactNode }) {
             </form>
           </nav>
           <div className="flex items-center justify-end gap-2 border-b border-line bg-bg px-4 py-2">
+            <Suspense fallback={null}>
+              <AtalhoSistema />
+            </Suspense>
             <BuscaUniversal />
             <Suspense fallback={<span aria-hidden className="size-9" />}>
               <Sino />
@@ -69,6 +73,23 @@ export default function LayoutApp({ children }: { children: ReactNode }) {
         </div>
       </div>
     </ProvedorAvisos>
+  );
+}
+
+/** Link para a tela de licenças, só para o dono do sistema (nível máximo). Some para os demais. */
+async function AtalhoSistema() {
+  await connection();
+  const { email } = await exigirOrganizacao({ exigirLicenca: false });
+  if (!ehEmailDonoSistema(email)) return null;
+  return (
+    <Link
+      href="/sistema/licencas"
+      title="Licenças das contas"
+      className="mr-auto inline-flex items-center gap-1.5 rounded-md border border-line px-2.5 py-1.5 text-xs font-semibold text-ink hover:bg-surface-2"
+    >
+      <ShieldCheck aria-hidden className="size-4" />
+      Licenças
+    </Link>
   );
 }
 
