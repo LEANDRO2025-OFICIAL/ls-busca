@@ -1,14 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { gerarIcs, tipoDoPrazo } from "@/lib/agenda";
-import { lerSessao } from "@/lib/auth";
-import { obterDb } from "@/lib/dados/db";
+import { autorizarApi } from "@/lib/api";
 import { listarPrazos } from "@/lib/dados/prazos";
 
-/** Prazos da organização em .ics (iCalendar), para importar em qualquer aplicativo de agenda. Exige sessão. */
+/** Prazos da organização em .ics (iCalendar), para importar em qualquer aplicativo de agenda. Exige sessão + licença. */
 export async function GET(req: NextRequest) {
-  const db = await obterDb();
-  const sessao = await lerSessao(db);
-  if (!sessao) return NextResponse.json({ erro: "Entre para exportar os prazos." }, { status: 401 });
+  const auth = await autorizarApi(req);
+  if (!auth.ok) return auth.resposta;
+  const { db, sessao } = auth;
 
   // Endereço pelo qual a pessoa chegou (atrás de proxy, o do cabeçalho), para os links dos eventos.
   const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host");

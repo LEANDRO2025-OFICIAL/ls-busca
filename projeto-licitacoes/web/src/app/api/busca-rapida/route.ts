@@ -1,14 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { lerSessao } from "@/lib/auth";
+import { autorizarApi } from "@/lib/api";
 import { buscarLicitacoes } from "@/lib/dados/busca";
-import { obterDb } from "@/lib/dados/db";
 
-/** Busca rápida (Ctrl+K): até 8 licitações abertas por texto, órgão, processo ou CNPJ do órgão. Exige sessão. */
+/** Busca rápida (Ctrl+K): até 8 licitações abertas por texto, órgão, processo ou CNPJ do órgão. Exige sessão + licença. */
 export async function GET(req: NextRequest) {
+  // Sessão + licença no servidor, e um freio simples (em memória, por instância) contra abuso.
+  const auth = await autorizarApi(req, { max: 60, janelaMs: 60_000 });
+  if (!auth.ok) return auth.resposta;
+  const { db, sessao } = auth;
   const q = (req.nextUrl.searchParams.get("q") ?? "").trim().slice(0, 200);
-  const db = await obterDb();
-  const sessao = await lerSessao(db);
-  if (!sessao) return NextResponse.json({ erro: "Entre para buscar." }, { status: 401 });
   if (q.length < 2) return NextResponse.json({ total: 0, resultados: [] });
 
   const { total, linhas } = await buscarLicitacoes(db, sessao.organizacaoId, {
