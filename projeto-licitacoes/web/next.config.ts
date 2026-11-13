@@ -1,7 +1,16 @@
 import type { NextConfig } from "next";
 
+const producao = process.env.NODE_ENV === "production";
+
 const nextConfig: NextConfig = {
   cacheComponents: true,
+  // Dissuasão (NÃO barreira: o código do navegador é sempre visível — ver docs/PROTECAO-E-LICENCA.md).
+  // Sem source maps no navegador em produção e sem console.* (menos pistas no bundle entregue).
+  // O minificador do Next já remove comentários do JS de produção.
+  productionBrowserSourceMaps: false,
+  compiler: {
+    removeConsole: producao ? { exclude: ["error", "warn"] } : false,
+  },
   // Impede o site de ser embutido em iframe de terceiros (clickjacking) e reduz vazamento de origem.
   async headers() {
     return [
