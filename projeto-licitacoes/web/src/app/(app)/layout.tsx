@@ -11,7 +11,9 @@ import { Sino } from "@/components/ui/sino";
 import { AlternarTema } from "@/components/ui/tema";
 import { buscarLicitacoes, filtrosDoRamo, inicioDasNovas } from "@/lib/dados/busca";
 import { obterDb } from "@/lib/dados/db";
+import { situacaoDaOrganizacao } from "@/lib/dados/licenca";
 import { obterPerfil } from "@/lib/dados/perfil";
+import { tempoRestante } from "@/lib/licenca";
 import { exigirOrganizacao } from "@/lib/sessao";
 
 const ATALHOS_CELULAR = [
@@ -60,10 +62,28 @@ export default function LayoutApp({ children }: { children: ReactNode }) {
             <AlternarTema />
             <Acessibilidade />
           </div>
+          <Suspense fallback={null}>
+            <AvisoAvaliacao />
+          </Suspense>
           {children}
         </div>
       </div>
     </ProvedorAvisos>
+  );
+}
+
+/** Banner de avaliação: só aparece durante o teste gratuito, com o tempo restante. O bloqueio em si
+ * (quando a avaliação ou a licença acaba) é feito por exigirOrganizacao, que leva para /bloqueio. */
+async function AvisoAvaliacao() {
+  await connection();
+  const { organizacaoId } = await exigirOrganizacao();
+  const situacao = await situacaoDaOrganizacao(await obterDb(), organizacaoId);
+  if (situacao.situacao !== "avaliacao" || situacao.trialRestanteMs == null) return null;
+  return (
+    <div className="border-b border-warning/40 bg-warning-soft px-4 py-2 text-center text-sm text-warning">
+      Avaliação gratuita: resta <strong>{tempoRestante(situacao.trialRestanteMs)}</strong>. Fale com o fornecedor para
+      assinar e não perder o acesso.
+    </div>
   );
 }
 

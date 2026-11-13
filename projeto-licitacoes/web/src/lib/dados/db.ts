@@ -175,5 +175,10 @@ async function prepararBanco(banco: Executor) {
       `insert into organizacao (id, nome) values ($1, 'Organização de desenvolvimento') on conflict (id) do nothing`,
       [ORG_DEV],
     );
+    // A organização de desenvolvimento não deve esbarrar no bloqueio de avaliação/licença.
+    await banco.consulta(
+      `update organizacao set licenca_estado = 'ativa', licenca_expira_em = null where id = $1 and licenca_estado <> 'ativa'`,
+      [ORG_DEV],
+    );
   }
 }
