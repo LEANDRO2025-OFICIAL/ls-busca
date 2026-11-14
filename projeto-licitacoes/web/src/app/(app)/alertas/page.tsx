@@ -35,8 +35,7 @@ export default function PaginaAlertas() {
         <Lista />
       </Suspense>
       <p className="text-xs text-muted">
-        Aviso por e-mail precisa de um provedor de envio configurado (ainda não há). Por enquanto, as novidades aparecem aqui.
-        A base é atualizada pelo PNCP enquanto o sistema está aberto.
+        A base é atualizada pelo PNCP enquanto o sistema está aberto. Configure GMAIL_USER e GMAIL_APP_PASSWORD para receber avisos por e-mail.
       </p>
     </main>
   );

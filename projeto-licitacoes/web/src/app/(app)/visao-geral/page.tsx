@@ -8,10 +8,12 @@ import { formatarValor, ListaPrazos } from "@/components/ui/licitacao";
 import { Indicador, Secao } from "@/components/ui/painel";
 import { buscarLicitacoes, filtrosDoRamo, inicioDasNovas, situacaoDaBase } from "@/lib/dados/busca";
 import { obterDb } from "@/lib/dados/db";
+import { lerResumoFonte, listarStatusConexoes } from "@/lib/dados/fontes";
 import { listarCartoes } from "@/lib/dados/funil";
 import { obterPerfil } from "@/lib/dados/perfil";
 import { listarPrazos } from "@/lib/dados/prazos";
 import { ETAPAS, NOME_ETAPA } from "@/lib/etapas";
+import { NOME_FONTE, type FonteId } from "@/lib/fontes/types";
 import { exigirOrganizacao } from "@/lib/sessao";
 
 export const metadata: Metadata = { title: "Visão geral" };
@@ -60,6 +62,15 @@ async function Painel() {
   const porEtapa = new Map(ETAPAS.map((e) => [e, cartoes.filter((c) => c.etapa === e).length]));
   const prazos = (await listarPrazos(db, organizacaoId)).filter(
     (p) => p.quando >= agora && p.quando.getTime() - agora.getTime() <= SETE_DIAS_MS,
+  );
+
+  const conexoesFontes = await listarStatusConexoes(db, organizacaoId);
+  const fontesAtivas = conexoesFontes.filter((c) => c.status === "ativa");
+  const resumosFontes = await Promise.all(
+    fontesAtivas.map(async (c) => ({
+      fonte: c.fonte,
+      resumo: await lerResumoFonte(db, organizacaoId, c.fonte),
+    })),
   );
 
   return (
@@ -152,6 +163,41 @@ async function Painel() {
           }))}
         />
       </Secao>
+
+      {resumosFontes.length > 0 && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {resumosFontes.map(({ fonte, resumo }) => resumo && (
+            <Secao key={fonte} titulo={NOME_FONTE[fonte as FonteId]} link={{ href: "/fontes", rotulo: "Gerenciar" }}>
+              <div className="grid grid-cols-2 gap-2 rounded-md border border-line bg-surface p-3">
+                {resumo.totalAbertas != null && (
+                  <div className="text-center">
+                    <p className="num text-lg font-bold">{resumo.totalAbertas.toLocaleString("pt-BR")}</p>
+                    <p className="text-xs text-muted">Abertas</p>
+                  </div>
+                )}
+                {resumo.totalFavoritas != null && (
+                  <div className="text-center">
+                    <p className="num text-lg font-bold">{resumo.totalFavoritas.toLocaleString("pt-BR")}</p>
+                    <p className="text-xs text-muted">Favoritas</p>
+                  </div>
+                )}
+                {resumo.boletinsNaoLidos != null && (
+                  <div className="text-center">
+                    <p className="num text-lg font-bold">{resumo.boletinsNaoLidos.toLocaleString("pt-BR")}</p>
+                    <p className="text-xs text-muted">Boletins</p>
+                  </div>
+                )}
+                {resumo.notificacoesNaoLidas != null && (
+                  <div className="text-center">
+                    <p className="num text-lg font-bold">{resumo.notificacoesNaoLidas.toLocaleString("pt-BR")}</p>
+                    <p className="text-xs text-muted">Notificações</p>
+                  </div>
+                )}
+              </div>
+            </Secao>
+          ))}
+        </div>
+      )}
     </>
   );
 }
