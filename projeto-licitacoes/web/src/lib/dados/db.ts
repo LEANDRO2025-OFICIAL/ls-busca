@@ -64,6 +64,14 @@ async function iniciarPostgres(url: string): Promise<Db> {
   const { Pool } = await import("pg");
   const { drizzle: drizzlePg } = await import("drizzle-orm/node-postgres");
   const pool = new Pool({ connectionString: url, max: 5, ssl: { rejectUnauthorized: false } });
+  // Testa a conexão antes de prosseguir para que o erro apareça claramente nos logs.
+  try {
+    const c = await pool.connect();
+    c.release();
+  } catch (erro) {
+    console.error("[LS Busca] Erro ao conectar com o banco:", erro);
+    throw erro;
+  }
   const executor: Executor = {
     exec: async (s) => void (await pool.query(s)),
     consulta: async <T,>(s: string, p?: unknown[]) => (await pool.query(s, p)).rows as T[],
