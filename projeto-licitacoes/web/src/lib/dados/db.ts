@@ -63,7 +63,7 @@ async function iniciarPglite(): Promise<Db> {
 async function iniciarPostgres(url: string): Promise<Db> {
   const { Pool } = await import("pg");
   const { drizzle: drizzlePg } = await import("drizzle-orm/node-postgres");
-  const pool = new Pool({ connectionString: url, max: 5 });
+  const pool = new Pool({ connectionString: url, max: 5, ssl: { rejectUnauthorized: false } });
   const executor: Executor = {
     exec: async (s) => void (await pool.query(s)),
     consulta: async <T,>(s: string, p?: unknown[]) => (await pool.query(s, p)).rows as T[],
