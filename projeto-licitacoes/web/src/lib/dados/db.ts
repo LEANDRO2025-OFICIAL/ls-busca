@@ -1,7 +1,12 @@
+import dns from "node:dns";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { drizzle, type PgliteDatabase } from "drizzle-orm/pglite";
 import * as schema from "./schema";
+
+// Railway (e outros ambientes sem IPv6) falham com ENETUNREACH quando Node.js 18+
+// resolve um hostname para IPv6. Força IPv4 globalmente para todo o processo.
+dns.setDefaultResultOrder("ipv4first");
 
 // Com DATABASE_URL: Postgres gerenciado (Neon, Supabase...) pelo driver pg.
 // Sem ela: Postgres 17 embutido (PGlite) em .data/pglite, só para desenvolvimento.
