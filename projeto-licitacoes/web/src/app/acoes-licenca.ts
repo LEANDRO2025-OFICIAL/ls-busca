@@ -4,14 +4,16 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { definirLicenca } from "@/lib/dados/licenca";
 import { obterDb } from "@/lib/dados/db";
+import { PLANOS_DISPONIVEIS } from "@/lib/planos";
 import { exigirDonoSistema } from "@/lib/sessao";
 
-// Ações da tela do nível máximo (dono do sistema): ativar/renovar, expirar ou bloquear a licença
-// de uma organização. Toda ação confere exigirDonoSistema no servidor.
+// Ações da tela do nível máximo (dono do sistema): ativar/renovar, expirar, bloquear a licença
+// e definir o plano de uma organização. Toda ação confere exigirDonoSistema no servidor.
 
 const esquema = z.object({
   organizacaoId: z.uuid(),
   estado: z.enum(["ativa", "expirada", "bloqueada"]),
+  plano: z.enum(PLANOS_DISPONIVEIS),
   // <input type="date"> = "AAAA-MM-DD"; só vale para "ativa". Vazio = sem data de expiração.
   expiraEm: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")),
   observacao: z.string().trim().max(300).optional(),
@@ -22,6 +24,7 @@ export async function acaoDefinirLicenca(formData: FormData) {
   const dados = esquema.safeParse({
     organizacaoId: formData.get("organizacaoId"),
     estado: formData.get("estado"),
+    plano: formData.get("plano"),
     expiraEm: String(formData.get("expiraEm") ?? ""),
     observacao: String(formData.get("observacao") ?? ""),
   });
@@ -35,6 +38,7 @@ export async function acaoDefinirLicenca(formData: FormData) {
 
   await definirLicenca(await obterDb(), dados.data.organizacaoId, {
     estado: dados.data.estado,
+    plano: dados.data.plano,
     expiraEm,
     observacao: dados.data.observacao?.trim() || null,
   });

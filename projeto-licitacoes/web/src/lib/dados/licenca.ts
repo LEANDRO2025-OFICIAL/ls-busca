@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { avaliarLicenca, ehEstadoLicenca, type EstadoLicenca, type Situacao } from "@/lib/licenca";
+import { ehPlano, type Plano } from "@/lib/planos";
 import type { Db } from "./db";
 
 type LinhaLicenca = {
@@ -31,6 +32,7 @@ export type OrganizacaoLicenca = {
   nome: string;
   cnpj: string | null;
   estado: EstadoLicenca;
+  plano: Plano;
   trialInicio: Date | null;
   trialFim: Date | null;
   licencaExpiraEm: Date | null;
@@ -48,6 +50,7 @@ export async function listarOrganizacoes(db: Db, agora: Date = new Date()): Prom
     nome: string;
     cnpj: string | null;
     licenca_estado: string;
+    plano: string;
     trial_inicio: Date | string | null;
     trial_fim: Date | string | null;
     licenca_expira_em: Date | string | null;
@@ -56,14 +59,15 @@ export async function listarOrganizacoes(db: Db, agora: Date = new Date()): Prom
     created_at: Date | string | null;
     membros: string | number;
   }>(sql`
-    select o.id, o.nome, o.cnpj, o.licenca_estado, o.trial_inicio, o.trial_fim, o.licenca_expira_em,
-           o.licenca_observacao, o.licenca_atualizada_em, o.created_at,
+    select o.id, o.nome, o.cnpj, o.licenca_estado, o.plano, o.trial_inicio, o.trial_fim,
+           o.licenca_expira_em, o.licenca_observacao, o.licenca_atualizada_em, o.created_at,
            (select count(*) from usuario u where u.organizacao_id = o.id) as membros
       from organizacao o
      order by o.created_at desc
   `);
   return r.rows.map((o) => {
     const estado: EstadoLicenca = ehEstadoLicenca(o.licenca_estado) ? o.licenca_estado : "bloqueada";
+    const plano: Plano = ehPlano(o.plano) ? o.plano : "basico";
     const trialFim = emData(o.trial_fim);
     const licencaExpiraEm = emData(o.licenca_expira_em);
     return {
@@ -71,6 +75,7 @@ export async function listarOrganizacoes(db: Db, agora: Date = new Date()): Prom
       nome: o.nome,
       cnpj: o.cnpj,
       estado,
+      plano,
       trialInicio: emData(o.trial_inicio),
       trialFim,
       licencaExpiraEm,
@@ -84,13 +89,13 @@ export async function listarOrganizacoes(db: Db, agora: Date = new Date()): Prom
 }
 
 /**
- * Define o estado da licença de uma organização (ativar, renovar, expirar ou bloquear).
+ * Define o estado da licença e o plano de uma organização.
  * Só deve ser chamada por quem passou por exigirDonoSistema(). Valida o estado e a data.
  */
 export async function definirLicenca(
   db: Db,
   organizacaoId: string,
-  dados: { estado: EstadoLicenca; expiraEm: Date | null; observacao: string | null },
+  dados: { estado: EstadoLicenca; expiraEm: Date | null; observacao: string | null; plano: Plano },
 ): Promise<void> {
   // Em "ativa" guardamos a validade escolhida; nos demais estados a validade não se aplica.
   const expira = dados.estado === "ativa" ? dados.expiraEm : null;
@@ -99,8 +104,18 @@ export async function definirLicenca(
        set licenca_estado = ${dados.estado},
            licenca_expira_em = ${expira},
            licenca_observacao = ${dados.observacao},
+           plano = ${dados.plano},
            licenca_atualizada_em = now(),
            updated_at = now()
      where id = ${organizacaoId}
   `);
+}
+
+/** Retorna o plano atual da organização. Útil para gates de funcionalidade em Server Components. */
+export async function planoOrganizacao(db: Db, organizacaoId: string): Promise<Plano> {
+  const r = await db.execute<{ plano: string }>(sql`
+    select plano from organizacao where id = ${organizacaoId}
+  `);
+  const p = r.rows[0]?.plano;
+  return ehPlano(p) ? p : "basico";
 }

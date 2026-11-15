@@ -8,6 +8,7 @@ import { Alerta, Botao, Esqueleto, Selo, type TomSelo } from "@/components/ui/ba
 import { obterDb } from "@/lib/dados/db";
 import { listarOrganizacoes, type OrganizacaoLicenca } from "@/lib/dados/licenca";
 import { tempoRestante } from "@/lib/licenca";
+import { INFO_PLANO, PLANOS_DISPONIVEIS } from "@/lib/planos";
 import { exigirDonoSistema } from "@/lib/sessao";
 
 export const metadata: Metadata = { title: "Licenças (sistema)" };
@@ -103,7 +104,11 @@ function CartaoOrg({ o }: { o: OrganizacaoLicenca }) {
         </div>
       </div>
 
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted sm:grid-cols-4">
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted sm:grid-cols-5">
+        <div>
+          <dt>Plano</dt>
+          <dd className="text-ink font-medium">{INFO_PLANO[o.plano]?.nome ?? o.plano}</dd>
+        </div>
         <div>
           <dt>Fim da avaliação</dt>
           <dd className="text-ink">{o.trialFim ? dataHora.format(o.trialFim) : "—"}</dd>
@@ -132,10 +137,18 @@ function CartaoOrg({ o }: { o: OrganizacaoLicenca }) {
         <input type="hidden" name="organizacaoId" value={o.id} />
         <label className="flex flex-col gap-1 text-xs font-medium text-ink">
           Estado
-          <select name="estado" defaultValue="ativa" className="h-9 rounded-md border border-line-strong bg-bg px-2 text-sm text-ink">
+          <select name="estado" defaultValue={o.estado === "avaliacao" ? "ativa" : o.estado} className="h-9 rounded-md border border-line-strong bg-bg px-2 text-sm text-ink">
             <option value="ativa">Ativar / renovar</option>
             <option value="expirada">Marcar expirada</option>
             <option value="bloqueada">Bloquear</option>
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-xs font-medium text-ink">
+          Plano
+          <select name="plano" defaultValue={o.plano} className="h-9 rounded-md border border-line-strong bg-bg px-2 text-sm text-ink">
+            {PLANOS_DISPONIVEIS.map((p) => (
+              <option key={p} value={p}>{INFO_PLANO[p].nome} — {INFO_PLANO[p].descricao}</option>
+            ))}
           </select>
         </label>
         <label className="flex flex-col gap-1 text-xs font-medium text-ink">

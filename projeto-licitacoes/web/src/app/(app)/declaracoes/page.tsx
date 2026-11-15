@@ -4,6 +4,11 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { FileSignature } from "lucide-react";
 import { Alerta, Botao, CampoTexto, Esqueleto } from "@/components/ui/basicos";
+import { ParedeUpgrade } from "@/components/ui/parede-upgrade";
+import { obterDb } from "@/lib/dados/db";
+import { planoOrganizacao } from "@/lib/dados/licenca";
+import { planoMinimo, planoTemFuncionalidade } from "@/lib/planos";
+import { exigirOrganizacao } from "@/lib/sessao";
 
 export const metadata: Metadata = { title: "Declarações" };
 
@@ -28,6 +33,18 @@ export default function PaginaDeclaracoes({ searchParams }: { searchParams: Para
 
 async function Formulario({ searchParams }: { searchParams: Parametros }) {
   await connection();
+  const { organizacaoId } = await exigirOrganizacao();
+  const plano = await planoOrganizacao(await obterDb(), organizacaoId);
+  if (!planoTemFuncionalidade(plano, "declaracoes")) {
+    return (
+      <ParedeUpgrade
+        planoAtual={plano}
+        planoNecessario={planoMinimo("declaracoes")}
+        funcionalidade="Gerador de declarações"
+      />
+    );
+  }
+
   const { cnpj: cnpjParam, erro } = await searchParams;
   const cnpjRaw = typeof cnpjParam === "string" ? cnpjParam : "";
 

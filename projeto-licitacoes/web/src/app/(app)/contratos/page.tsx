@@ -5,8 +5,11 @@ import { CalendarX2, ExternalLink, FileStack, Plus, Trash2 } from "lucide-react"
 import { acaoAditivarContrato, acaoRemoverContrato, acaoSalvarContrato } from "@/app/acoes-contratos";
 import { Alerta, Botao, CampoTexto, Esqueleto, EstadoVazio, Selo, type TomSelo } from "@/components/ui/basicos";
 import { Indicador, Secao } from "@/components/ui/painel";
+import { ParedeUpgrade } from "@/components/ui/parede-upgrade";
 import { obterDb } from "@/lib/dados/db";
 import { listarContratos, statusDoContrato, type StatusContrato } from "@/lib/dados/contratos";
+import { planoOrganizacao } from "@/lib/dados/licenca";
+import { planoMinimo, planoTemFuncionalidade } from "@/lib/planos";
 import { exigirOrganizacao } from "@/lib/sessao";
 import { formatarValor } from "@/components/ui/licitacao";
 
@@ -62,8 +65,19 @@ async function Conteudo({ searchParams }: { searchParams: Parametros }) {
   await connection();
   const { ok, erro } = await searchParams;
   const { organizacaoId } = await exigirOrganizacao();
-  const contratos = await listarContratos(await obterDb(), organizacaoId);
+  const db = await obterDb();
+  const plano = await planoOrganizacao(db, organizacaoId);
+  if (!planoTemFuncionalidade(plano, "contratos")) {
+    return (
+      <ParedeUpgrade
+        planoAtual={plano}
+        planoNecessario={planoMinimo("contratos")}
+        funcionalidade="Contratos e ATAs"
+      />
+    );
+  }
   const hoje = chaveDia.format(new Date());
+  const contratos = await listarContratos(db, organizacaoId);
 
   const lista = contratos.map((c) => ({
     c,
