@@ -6,10 +6,10 @@ type Variante = "primario" | "secundario" | "fantasma" | "perigo";
 type Tamanho = "sm" | "md" | "lg";
 
 const VARIANTES: Record<Variante, string> = {
-  primario: "bg-accent text-on-accent hover:bg-accent-hover",
-  secundario: "border border-line-strong bg-bg text-ink hover:bg-surface",
-  fantasma: "text-accent hover:bg-accent-soft",
-  perigo: "bg-danger text-on-accent hover:opacity-90",
+  primario: "bg-accent text-on-accent hover:bg-accent-hover active:bg-accent-strong",
+  secundario: "border border-line-strong bg-bg text-ink hover:bg-surface active:bg-surface-2",
+  fantasma: "text-accent hover:bg-accent-soft active:text-accent-strong",
+  perigo: "bg-danger text-on-accent hover:opacity-90 active:opacity-80",
 };
 
 const TAMANHOS: Record<Tamanho, string> = {
@@ -42,8 +42,8 @@ export function Botao({
       disabled={disabled || carregando}
       aria-busy={carregando || undefined}
       className={cn(
-        "inline-flex shrink-0 items-center justify-center gap-2 rounded-md font-semibold transition-colors duration-150",
-        "disabled:cursor-not-allowed disabled:opacity-55",
+        "inline-flex shrink-0 items-center justify-center gap-2 rounded-md font-semibold transition-[color,background-color,border-color,opacity]",
+        "disabled:pointer-events-none disabled:opacity-55",
         VARIANTES[variante],
         TAMANHOS[tamanho],
         className,

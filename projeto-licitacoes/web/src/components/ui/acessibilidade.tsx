@@ -50,7 +50,7 @@ export function Acessibilidade() {
     <details className="relative">
       <summary
         aria-label="Ajustes de leitura"
-        className="flex size-9 cursor-pointer list-none items-center justify-center rounded-md border border-line-strong bg-bg hover:bg-surface-2 [&::-webkit-details-marker]:hidden"
+        className="flex size-9 cursor-pointer list-none items-center justify-center rounded-md border border-line-strong bg-bg transition-colors hover:bg-surface-2 [&::-webkit-details-marker]:hidden"
       >
         <Accessibility aria-hidden className="size-4" />
       </summary>

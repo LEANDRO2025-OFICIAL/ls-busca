@@ -1,24 +1,86 @@
-  AAA   16.45:1  text                     on bg                   
-  AAA   15.26:1  text                     on surface              
-  AAA   14.00:1  text                     on surface-2            
-  AA     6.52:1  text-muted               on bg                   
-  AA     6.04:1  text-muted               on surface              
-  AA     5.54:1  text-muted               on surface-2            
-  AA     6.38:1  on-accent                on accent               
-  AAA    8.10:1  on-accent                on accent-hover         
-  AA     6.38:1  accent                   on bg                   
-  AA     5.92:1  accent                   on surface              
-  AAA    8.36:1  accent-strong            on accent-soft          
-  AA     6.17:1  warning                  on bg                   
-  AA     5.43:1  warning                  on warning-soft         
-  AA     6.57:1  danger                   on bg                   
-  AA     5.75:1  danger                   on danger-soft          
-  AA     5.85:1  success                  on bg                   
-  AA     5.09:1  success                  on success-soft         
-  AA     5.59:1  text-muted               on accent-soft          
-  PASS   4.01:1  border-input             on bg                   ui
-  PASS   3.72:1  border-input             on surface              ui
-  PASS   6.38:1  focus                    on bg                   ui
-  PASS   5.43:1  focus                    on surface-2            ui
+TEMA CLARO (color)
 
-  22 pairs, 0 failing AA
+  AAA   16.45:1  text                     on bg                  
+  AAA   15.26:1  text                     on surface             
+  AAA   14.00:1  text                     on surface-2           
+  AA     6.52:1  text-muted               on bg                  
+  AA     6.04:1  text-muted               on surface             
+  AA     5.54:1  text-muted               on surface-2           
+  AA     6.38:1  on-accent                on accent              
+  AAA    8.10:1  on-accent                on accent-hover        
+  AA     6.38:1  accent                   on bg                  
+  AA     5.92:1  accent                   on surface             
+  AAA    8.36:1  accent-strong            on accent-soft         
+  AA     6.17:1  warning                  on bg                  
+  AA     5.43:1  warning                  on warning-soft        
+  AA     6.57:1  danger                   on bg                  
+  AA     5.75:1  danger                   on danger-soft         
+  AA     5.85:1  success                  on bg                  
+  AA     5.09:1  success                  on success-soft        
+  AA     5.59:1  text-muted               on accent-soft         
+  PASS   4.01:1  border-input             on bg                  ui
+  PASS   3.72:1  border-input             on surface             ui
+  PASS   6.38:1  focus                    on bg                  ui
+  PASS   5.43:1  focus                    on surface-2           ui
+  AAA   14.12:1  text                     on accent-soft         
+  AA     5.43:1  accent                   on surface-2           
+  AA     5.48:1  accent                   on accent-soft         
+  AAA    9.74:1  on-accent                on accent-strong       
+  AA     6.57:1  on-accent                on danger              
+  AA     5.72:1  warning                  on surface             
+  AA     6.10:1  danger                   on surface             
+  AA     5.43:1  success                  on surface             
+  PASS   3.42:1  border-input             on surface-2           ui
+  PASS   5.92:1  focus                    on surface             ui
+  PASS   5.48:1  focus                    on accent-soft         ui
+  PASS   6.57:1  danger                   on bg                  ui
+  PASS   5.25:1  warning                  on surface-2           ui
+  PASS   4.98:1  success                  on surface-2           ui
+  PASS   5.54:1  text-muted               on surface-2           ui
+  PASS   5.43:1  accent                   on surface-2           ui
+
+  38 pairs, 0 failing AA
+
+TEMA ESCURO (color-dark, [data-theme="dark"])
+
+  AAA   15.67:1  text                     on bg                  
+  AAA   14.42:1  text                     on surface             
+  AAA   12.56:1  text                     on surface-2           
+  AAA    8.40:1  text-muted               on bg                  
+  AAA    7.73:1  text-muted               on surface             
+  AA     6.73:1  text-muted               on surface-2           
+  AA     6.84:1  on-accent                on accent              
+  AAA    8.32:1  on-accent                on accent-hover        
+  AAA    7.59:1  accent                   on bg                  
+  AA     6.98:1  accent                   on surface             
+  AAA    8.82:1  accent-strong            on accent-soft         
+  AAA    9.88:1  warning                  on bg                  
+  AAA    7.44:1  warning                  on warning-soft        
+  AAA    8.56:1  danger                   on bg                  
+  AA     6.69:1  danger                   on danger-soft         
+  AAA   10.05:1  success                  on bg                  
+  AAA    7.22:1  success                  on success-soft        
+  AA     6.25:1  text-muted               on accent-soft         
+  PASS   4.17:1  border-input             on bg                  ui
+  PASS   3.84:1  border-input             on surface             ui
+  PASS   9.23:1  focus                    on bg                  ui
+  PASS   7.39:1  focus                    on surface-2           ui
+  AAA   11.66:1  text                     on accent-soft         
+  AA     6.08:1  accent                   on surface-2           
+  AA     5.64:1  accent                   on accent-soft         
+  AAA   10.69:1  on-accent                on accent-strong       
+  AAA    7.72:1  on-accent                on danger              
+  AAA    9.10:1  warning                  on surface             
+  AAA    7.88:1  danger                   on surface             
+  AAA    9.25:1  success                  on surface             
+  PASS   3.34:1  border-input             on surface-2           ui
+  PASS   8.49:1  focus                    on surface             ui
+  PASS   6.86:1  focus                    on accent-soft         ui
+  PASS   8.56:1  danger                   on bg                  ui
+  PASS   7.92:1  warning                  on surface-2           ui
+  PASS   8.05:1  success                  on surface-2           ui
+  PASS   6.73:1  text-muted               on surface-2           ui
+  PASS   6.08:1  accent                   on surface-2           ui
+
+  38 pairs, 0 failing AA
+

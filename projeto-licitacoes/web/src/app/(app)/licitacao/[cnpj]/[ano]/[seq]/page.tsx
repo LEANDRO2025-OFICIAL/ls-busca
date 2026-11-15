@@ -9,6 +9,7 @@ import { Botao, Esqueleto, Selo } from "@/components/ui/basicos";
 import { formatarValor, Prazo } from "@/components/ui/licitacao";
 import { obterLicitacao } from "@/lib/dados/busca";
 import { obterDb } from "@/lib/dados/db";
+import { historicoDeEtapas } from "@/lib/dados/funil";
 import { listarArquivos, type ArquivoPncp } from "@/lib/dados/pncp";
 import { ehEtapa, NOME_ETAPA } from "@/lib/etapas";
 import { exigirOrganizacao } from "@/lib/sessao";
@@ -55,8 +56,11 @@ async function Detalhe({ params }: { params: Parametros }) {
   if (!/^\d{14}$/.test(cnpj) || !/^\d{4}$/.test(ano) || !/^\d{1,9}$/.test(seq)) notFound();
 
   const { organizacaoId } = await exigirOrganizacao();
-  const l = await obterLicitacao(await obterDb(), organizacaoId, cnpj, Number(ano), Number(seq));
+  const db = await obterDb();
+  const l = await obterLicitacao(db, organizacaoId, cnpj, Number(ano), Number(seq));
   if (!l) notFound();
+  const historico = l.etapa ? await historicoDeEtapas(db, organizacaoId, l.numeroControle) : [];
+  const nomeEtapa = (e: string | null) => (e && ehEtapa(e) ? NOME_ETAPA[e] : e);
 
   const agora = new Date();
   const encerrada = l.encerramento != null && l.encerramento.getTime() < agora.getTime();
@@ -119,6 +123,27 @@ async function Detalhe({ params }: { params: Parametros }) {
           </a>
         )}
       </div>
+
+      {historico.length > 0 && (
+        <section id="historico" aria-labelledby="titulo-historico" className="flex flex-col gap-2">
+          <h2 id="titulo-historico" className="text-base font-semibold">
+            Histórico no funil
+          </h2>
+          <ol className="flex flex-col divide-y divide-line rounded-lg border border-line">
+            {historico.map((m) => (
+              <li key={m.id} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 px-3 py-2 text-sm">
+                <span className="text-ink">
+                  {m.de ? `${nomeEtapa(m.de)} → ` : "Entrou em "}
+                  <strong className="font-semibold">{nomeEtapa(m.para)}</strong>
+                </span>
+                <span className="num text-xs text-muted">
+                  {formatoDataHora.format(m.quando)} · {m.responsavel ?? "responsável removido"}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
 
       <section id="edital" aria-labelledby="titulo-edital" className="flex flex-col gap-2">
         <h2 id="titulo-edital" className="text-base font-semibold">

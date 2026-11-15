@@ -7,6 +7,22 @@ Base acessível: elementos nativos (`button`, `input`, `select`, `dialog`) e ARI
 ## Identidade em uma frase
 Ferramenta de trabalho, não vitrine: densa e legível, cantos retos (`radius-md` 6 px), verde-petróleo para ação, âmbar só para prazo. Navegação em barra lateral, números em fonte tabular.
 
+## Temas claro e escuro
+Um tema só, dois modos: `[data-theme="dark"]` em `<html>` redefine os MESMOS papéis de cor (`color-dark` em `tokens.json`); nenhum componente muda de classe. Componentes nunca usam hex, `white` ou `black` — só papéis. Conferência: `node contrast.mjs > contrast-report.txt` (duas tabelas, AA em todos os pares).
+
+```
+AlternarTema (components/ui/tema.tsx)
+  onde       barra superior do app, telas Entrar e Criar conta, /design
+  estados    claro (ícone lua, rótulo "Usar tema escuro"), escuro (ícone sol, rótulo "Usar tema claro"), hover, focus-visible
+  tokens     size 36px · border-line-strong bg-bg text-ink hover:bg-surface-2 · radius md
+  regra      escolha salva em localStorage "ls-tema"; sem escolha, segue prefers-color-scheme;
+             script no <head> define data-theme antes da primeira pintura; color-scheme acompanha (controles nativos)
+  a11y       <button> com aria-label e title que dizem o que o clique faz
+```
+
+## Estados e movimento
+Transições usam `--duration-rapida` (120 ms) e `--ease-padrao` por padrão. Botões: hover, ativo (`active:`), foco, desabilitado (55 %, sem hover). Campos (`input`, `select`, `textarea`): borda `muted` no hover e `focus` no foco, regra única em `globals.css`. Com `prefers-reduced-motion`, animações e transições param (1 ms, uma iteração).
+
 ---
 
 ```
@@ -14,7 +30,7 @@ Botao
   variantes  primario, secundario, fantasma, perigo
   tamanhos   sm 32px, md 40px, lg 44px (alvo de toque no celular)
   estados    padrão, hover, ativo, focus-visible (anel 2px focus), desabilitado, carregando
-  tokens     primario: bg-accent text-on-accent hover:bg-accent-hover · secundario: bg-bg border-line-strong text-ink
+  tokens     primario: bg-accent text-on-accent hover:bg-accent-hover active:bg-accent-strong · secundario: bg-bg border-line-strong text-ink
              fantasma: text-accent hover:bg-accent-soft · perigo: bg-danger text-on-accent · radius md · text-sm/600
   a11y       <button> real; carregando = aria-busy + rótulo mantido para leitor de tela; desabilitado nunca é o único aviso
   usado em   todas

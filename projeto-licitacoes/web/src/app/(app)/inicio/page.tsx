@@ -29,7 +29,7 @@ const numero = new Intl.NumberFormat("pt-BR");
 const chaveDia = new Intl.DateTimeFormat("en-CA", { timeZone: FUSO });
 const horaCheia = new Intl.DateTimeFormat("pt-BR", { timeZone: FUSO, hour: "2-digit", hour12: false });
 const diaPorExtenso = new Intl.DateTimeFormat("pt-BR", { timeZone: FUSO, weekday: "long", day: "numeric", month: "long" });
-const FINAIS = new Set(["ganhou", "perdeu", "desistiu"]);
+const FINAIS = new Set(["ganhou", "homologacao", "contrato", "perdeu", "desistiu"]);
 
 const ATALHOS: { href: string; titulo: string; texto: string; icone: LucideIcon }[] = [
   { href: "/buscar", titulo: "Buscar licitações", texto: "Por objeto, órgão ou processo", icone: Search },

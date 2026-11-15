@@ -8,10 +8,14 @@ import { BuscaUniversal } from "@/components/ui/busca-universal";
 import { Navegacao } from "@/components/ui/navegacao";
 import { NavegacaoApp } from "@/components/ui/navegacao-app";
 import { Sino } from "@/components/ui/sino";
+import { AlternarTema } from "@/components/ui/tema";
 import { buscarLicitacoes, filtrosDoRamo, inicioDasNovas } from "@/lib/dados/busca";
 import { obterDb } from "@/lib/dados/db";
+import { situacaoDaOrganizacao } from "@/lib/dados/licenca";
 import { obterPerfil } from "@/lib/dados/perfil";
-import { exigirOrganizacao } from "@/lib/sessao";
+import { tempoRestante } from "@/lib/licenca";
+import { ehEmailDonoSistema, exigirOrganizacao } from "@/lib/sessao";
+import { ShieldCheck } from "lucide-react";
 
 const ATALHOS_CELULAR = [
   { href: "/inicio", rotulo: "Início" },
@@ -20,7 +24,10 @@ const ATALHOS_CELULAR = [
   { href: "/buscar", rotulo: "Buscar" },
   { href: "/funil", rotulo: "Funil" },
   { href: "/funil/prazos", rotulo: "Prazos" },
+  { href: "/calendario", rotulo: "Calendário" },
+  { href: "/robo", rotulo: "Robô de lance" },
   { href: "/alertas", rotulo: "Alertas" },
+  { href: "/comunidade", rotulo: "Grandes licitações" },
   { href: "/documentos", rotulo: "Documentos" },
   { href: "/empresa", rotulo: "Empresa" },
   { href: "/ajuda", rotulo: "Ajuda" },
@@ -38,27 +45,66 @@ export default function LayoutApp({ children }: { children: ReactNode }) {
         <div className="flex min-w-0 flex-1 flex-col">
           <nav aria-label="Principal" className="flex gap-1 overflow-x-auto border-b border-line bg-surface px-2 py-2 lg:hidden">
             {ATALHOS_CELULAR.map((a) => (
-              <Link key={a.href} href={a.href} className="rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-ink hover:bg-surface-2">
+              <Link key={a.href} href={a.href} className="rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-ink transition-colors hover:bg-surface-2">
                 {a.rotulo}
               </Link>
             ))}
             <form action={acaoSair} className="ml-auto">
-              <button type="submit" className="rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-ink hover:bg-surface-2">
+              <button type="submit" className="rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-ink transition-colors hover:bg-surface-2">
                 Sair
               </button>
             </form>
           </nav>
           <div className="flex items-center justify-end gap-2 border-b border-line bg-bg px-4 py-2">
+            <Suspense fallback={null}>
+              <AtalhoSistema />
+            </Suspense>
             <BuscaUniversal />
             <Suspense fallback={<span aria-hidden className="size-9" />}>
               <Sino />
             </Suspense>
+            <AlternarTema />
             <Acessibilidade />
           </div>
+          <Suspense fallback={null}>
+            <AvisoAvaliacao />
+          </Suspense>
           {children}
         </div>
       </div>
     </ProvedorAvisos>
+  );
+}
+
+/** Link para a tela de licenças, só para o dono do sistema (nível máximo). Some para os demais. */
+async function AtalhoSistema() {
+  await connection();
+  const { email } = await exigirOrganizacao({ exigirLicenca: false });
+  if (!ehEmailDonoSistema(email)) return null;
+  return (
+    <Link
+      href="/sistema/licencas"
+      title="Licenças das contas"
+      className="mr-auto inline-flex items-center gap-1.5 rounded-md border border-line px-2.5 py-1.5 text-xs font-semibold text-ink hover:bg-surface-2"
+    >
+      <ShieldCheck aria-hidden className="size-4" />
+      Licenças
+    </Link>
+  );
+}
+
+/** Banner de avaliação: só aparece durante o teste gratuito, com o tempo restante. O bloqueio em si
+ * (quando a avaliação ou a licença acaba) é feito por exigirOrganizacao, que leva para /bloqueio. */
+async function AvisoAvaliacao() {
+  await connection();
+  const { organizacaoId } = await exigirOrganizacao();
+  const situacao = await situacaoDaOrganizacao(await obterDb(), organizacaoId);
+  if (situacao.situacao !== "avaliacao" || situacao.trialRestanteMs == null) return null;
+  return (
+    <div className="border-b border-warning/40 bg-warning-soft px-4 py-2 text-center text-sm text-warning">
+      Avaliação gratuita: resta <strong>{tempoRestante(situacao.trialRestanteMs)}</strong>. Fale com o fornecedor para
+      assinar e não perder o acesso.
+    </div>
   );
 }
 

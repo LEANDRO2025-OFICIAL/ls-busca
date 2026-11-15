@@ -44,12 +44,12 @@ export async function resumoDoFunil(db: Db, organizacaoId: string) {
     ganhos: string | number;
     valor_ganho: string | number;
   }>(sql`
-    select count(*) filter (where a.etapa not in ('ganhou', 'perdeu', 'desistiu')) as em_andamento,
-           coalesce(sum(l.valor_estimado_centavos) filter (where a.etapa not in ('ganhou', 'perdeu', 'desistiu')), 0) as valor_andamento,
+    select count(*) filter (where a.etapa not in ('ganhou', 'homologacao', 'contrato', 'perdeu', 'desistiu')) as em_andamento,
+           coalesce(sum(l.valor_estimado_centavos) filter (where a.etapa not in ('ganhou', 'homologacao', 'contrato', 'perdeu', 'desistiu')), 0) as valor_andamento,
            count(*) filter (where a.etapa in ('decidido_participar', 'proposta_enviada', 'sessao_hoje', 'em_disputa')) as para_disputar,
            coalesce(sum(l.valor_estimado_centavos) filter (where a.etapa in ('decidido_participar', 'proposta_enviada', 'sessao_hoje', 'em_disputa')), 0) as valor_disputar,
-           count(*) filter (where a.etapa = 'ganhou') as ganhos,
-           coalesce(sum(l.valor_estimado_centavos) filter (where a.etapa = 'ganhou'), 0) as valor_ganho
+           count(*) filter (where a.etapa in ('ganhou', 'homologacao', 'contrato')) as ganhos,
+           coalesce(sum(l.valor_estimado_centavos) filter (where a.etapa in ('ganhou', 'homologacao', 'contrato')), 0) as valor_ganho
       from acompanhamento a
       join licitacao l on l.numero_controle_pncp = a.numero_controle_pncp
      where a.organizacao_id = ${organizacaoId}

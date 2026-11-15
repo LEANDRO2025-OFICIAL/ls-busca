@@ -8,6 +8,8 @@ export const POR_PAGINA = 20;
 export type FiltrosBusca = {
   q: string;
   uf: string | null;
+  /** Nome do município, sem diferenciar acento ou maiúsculas. */
+  municipio?: string | null;
   modalidade: number | null;
   valorMinCentavos: number | null;
   valorMaxCentavos: number | null;
@@ -81,6 +83,9 @@ export async function buscarLicitacoes(db: Db, organizacaoId: string, filtros: F
     )`);
   }
   if (filtros.uf) condicoes.push(sql`l.uf = ${filtros.uf}`);
+  if (filtros.municipio) {
+    condicoes.push(sql`f_unaccent(lower(coalesce(l.municipio, ''))) = f_unaccent(lower(${filtros.municipio}))`);
+  }
   if (filtros.modalidade) condicoes.push(sql`l.modalidade_id = ${filtros.modalidade}`);
   if (filtros.valorMinCentavos != null) condicoes.push(sql`l.valor_estimado_centavos >= ${filtros.valorMinCentavos}`);
   if (filtros.valorMaxCentavos != null) condicoes.push(sql`l.valor_estimado_centavos <= ${filtros.valorMaxCentavos}`);

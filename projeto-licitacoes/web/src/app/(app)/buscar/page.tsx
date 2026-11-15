@@ -42,7 +42,7 @@ export default function PaginaBuscar({ searchParams }: { searchParams: Parametro
 
 async function Resultados({ searchParams }: { searchParams: ParametrosBusca }) {
   await connection();
-  const { q, encerra, ramo, uf, modalidade, valorMin, valorMax, aderencia, pagina, desde, atuais } = lerFiltros(await searchParams);
+  const { q, encerra, ramo, uf, municipio, modalidade, valorMin, valorMax, aderencia, pagina, desde, atuais } = lerFiltros(await searchParams);
 
   const { organizacaoId } = await exigirOrganizacao();
   const db = await obterDb();
@@ -51,6 +51,7 @@ async function Resultados({ searchParams }: { searchParams: ParametrosBusca }) {
   const resultado = await buscarLicitacoes(db, organizacaoId, {
     q,
     uf,
+    municipio,
     modalidade,
     valorMinCentavos: valorMin == null ? null : valorMin * 100,
     valorMaxCentavos: valorMax == null ? null : valorMax * 100,
@@ -108,6 +109,10 @@ async function Resultados({ searchParams }: { searchParams: ParametrosBusca }) {
           </select>
         </label>
         <label className="flex flex-col gap-1 text-xs font-medium text-muted">
+          Município
+          <input name="mun" defaultValue={atuais.mun} placeholder="Todos" maxLength={80} className={`${campo} w-40`} />
+        </label>
+        <label className="flex flex-col gap-1 text-xs font-medium text-muted">
           Modalidade
           <select name="mod" defaultValue={modalidade ? String(modalidade) : ""} className={`${campo} max-w-56`}>
             <option value="">Todas</option>
@@ -139,9 +144,9 @@ async function Resultados({ searchParams }: { searchParams: ParametrosBusca }) {
         <Botao type="submit" variante="secundario">
           Aplicar filtros
         </Botao>
-        {(uf || modalidade || valorMin != null || valorMax != null || aderencia) && (
+        {(uf || municipio || modalidade || valorMin != null || valorMax != null || aderencia) && (
           <Link
-            href={montarHref(atuais, { uf: null, mod: null, vmin: null, vmax: null, ader: null, pagina: null })}
+            href={montarHref(atuais, { uf: null, mun: null, mod: null, vmin: null, vmax: null, ader: null, pagina: null })}
             className="pb-2 text-sm font-semibold text-accent hover:underline"
           >
             Limpar filtros

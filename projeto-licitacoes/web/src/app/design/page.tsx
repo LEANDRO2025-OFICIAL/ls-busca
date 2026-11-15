@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Bell, Building2, FilterX, Mail, Search, SearchX, Trash2 } from "lucide-react";
 import { BotoesDemoAviso, ProvedorAvisos } from "@/components/ui/avisos";
 import { Botao, CampoTexto, Esqueleto, EstadoVazio, Selo } from "@/components/ui/basicos";
+import { AlternarTema } from "@/components/ui/tema";
 import { BuscaComTermos, FiltroChip } from "@/components/ui/busca";
 import { Checklist, QuadroFunil, type CartaoFunilDados } from "@/components/ui/funil";
 import {
@@ -167,8 +168,9 @@ export default function PaginaDesign() {
             <h1 className="text-display font-bold">Componentes da busca e do funil</h1>
             <p className="max-w-2xl text-muted">
               Tokens próprios: verde-petróleo para ação, âmbar só para prazo, IBM Plex e cantos retos. Todos os pares de
-              cor passam no contraste AA (relatório em replica/design/contrast-report.txt).
+              cor passam no contraste AA nos temas claro e escuro (relatório em replica/design/contrast-report.txt).
             </p>
+            <AlternarTema />
           </header>
 
           <Secao id="cores" titulo="Cores" descricao="Papéis, não valores. A etapa de marca troca os valores sem mexer nos nomes.">
