@@ -34,7 +34,8 @@ async function fetchPncp(url: URL, cabecalhos: Record<string, string>): Promise<
       let ca: Buffer | undefined;
       try { ca = readFileSync("/root/.ccr/ca-bundle.crt"); } catch {}
       const req = httpsRequest(
-        { host: url.hostname, path: url.pathname + url.search, method: "GET", socket, agent: false, headers: { ...cabecalhos, Host: url.hostname }, ...(ca ? { ca } : {}) },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        { host: url.hostname, path: url.pathname + url.search, method: "GET", socket, agent: false, headers: { ...cabecalhos, Host: url.hostname }, ...(ca ? { ca } : {}) } as any,
         (res) => {
           const chunks: Buffer[] = [];
           res.on("data", (d: Buffer) => chunks.push(d));
