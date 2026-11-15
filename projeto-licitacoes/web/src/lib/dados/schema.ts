@@ -115,3 +115,23 @@ export const mudancaEtapa = pgTable("mudanca_etapa", {
   usuarioId: uuid("usuario_id"),
   createdAt: criadoEm(),
 });
+
+export const contrato = pgTable("contrato", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizacaoId: uuid("organizacao_id").notNull(),
+  tipo: text("tipo").notNull().default("contrato"),
+  numero: text("numero").notNull(),
+  orgaoNome: text("orgao_nome").notNull(),
+  orgaoCnpj: char("orgao_cnpj", { length: 14 }),
+  objeto: text("objeto").notNull(),
+  valorTotalCentavos: bigint("valor_total_centavos", { mode: "number" }),
+  valorAtualCentavos: bigint("valor_atual_centavos", { mode: "number" }),
+  dataInicio: date("data_inicio").notNull(),
+  dataFim: date("data_fim").notNull(),
+  aditivos: integer("aditivos").notNull().default(0),
+  numeroControlePncp: text("numero_controle_pncp"),
+  linkExterno: text("link_externo"),
+  notas: text("notas"),
+  createdAt: criadoEm(),
+  updatedAt: atualizadoEm(),
+});

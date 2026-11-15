@@ -29,6 +29,8 @@ const ATALHOS_CELULAR = [
   { href: "/alertas", rotulo: "Alertas" },
   { href: "/comunidade", rotulo: "Grandes licitações" },
   { href: "/documentos", rotulo: "Documentos" },
+  { href: "/contratos", rotulo: "Contratos e ATAs" },
+  { href: "/declaracoes", rotulo: "Declarações" },
   { href: "/empresa", rotulo: "Empresa" },
   { href: "/ajuda", rotulo: "Ajuda" },
 ];
