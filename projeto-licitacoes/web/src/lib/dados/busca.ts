@@ -254,7 +254,13 @@ export async function buscarEmTempoReal(parametros: {
   pagina: number;
 }): Promise<{ total: number; parcial: boolean; linhas: ResultadoLinha[] }> {
   const hoje = new Date();
-  const dataFinal = `${hoje.getFullYear()}${String(hoje.getMonth() + 1).padStart(2, "0")}${String(hoje.getDate()).padStart(2, "0")}`;
+  // dataFinal deve ser uma data FUTURA para capturar propostas abertas (que encerram no futuro).
+  // Usar hoje retorna só propostas que já encerraram (encerramento <= hoje = expiradas).
+  // Espelha a lógica de ingestao.ts (janelaFim = hoje + 120 dias).
+  const futuro = new Date(hoje.getTime() + 120 * 86_400_000);
+  const dataFinal = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" })
+    .format(futuro)
+    .replace(/-/g, ""); // en-CA → "yyyy-MM-dd"; PNCP espera "yyyyMMdd"
   const modalidades = parametros.modalidade ? [parametros.modalidade] : TODAS_MODALIDADES;
 
   const tarefas = modalidades.map(
