@@ -69,8 +69,6 @@ async function Resultados({ searchParams }: { searchParams: ParametrosBusca }) {
         aderenciaMin: aderencia,
       });
 
-  const aoVivoEParcial = aoVivo && "parcial" in resultado && resultado.parcial === true;
-
   const agora = new Date();
   const extras = Object.fromEntries(
     Object.entries(atuais).filter(([chave, valor]) => chave !== "q" && chave !== "desde" && valor),
@@ -168,13 +166,11 @@ async function Resultados({ searchParams }: { searchParams: ParametrosBusca }) {
       </p>
       {aoVivo && (
         <p className="rounded-md bg-accent-soft px-3 py-2 text-xs text-accent-strong">
-          Resultados ao vivo do PNCP
-          {aoVivoEParcial ? " · amostragem das 4 principais modalidades" : null}
-          {" — "}
+          Resultados ao vivo do PNCP · todas as modalidades{" — "}
           <a href="/api/cron/ingerir" className="font-semibold underline">
             popular a base completa
           </a>{" "}
-          para buscas mais completas.
+          para buscas ainda mais rápidas.
         </p>
       )}
 

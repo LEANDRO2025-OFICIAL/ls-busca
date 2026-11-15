@@ -218,17 +218,34 @@ export async function situacaoDaBase(db: Db) {
   };
 }
 
-// Modalidades mais frequentes: Pregão Eletrônico, Pregão Presencial, Concorrência, Concorrência Eletrônica
-const MODALIDADES_PRINCIPAIS = [6, 5, 1, 12];
+// Todas as 12 modalidades, ordenadas por volume de licitações abertas.
+const TODAS_MODALIDADES = [6, 12, 4, 8, 5, 7, 1, 11, 13, 3, 10, 9];
 
 function normalizar(s: string) {
   return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 }
 
+/** Dispara tarefas em fatias sequenciais com pausa entre elas para respeitar rate-limits. */
+async function buscarEmLote<T>(
+  tarefas: Array<() => Promise<T>>,
+  tamanhoDaFatia: number,
+  pausaMs: number,
+): Promise<PromiseSettledResult<T>[]> {
+  const resultados: PromiseSettledResult<T>[] = [];
+  for (let i = 0; i < tarefas.length; i += tamanhoDaFatia) {
+    const fatia = tarefas.slice(i, i + tamanhoDaFatia);
+    if (i > 0) await new Promise<void>((r) => setTimeout(r, pausaMs));
+    const lote = await Promise.allSettled(fatia.map((f) => f()));
+    resultados.push(...lote);
+  }
+  return resultados;
+}
+
 /**
  * Busca ao vivo na API pública do PNCP — sem banco local.
- * Usado como fallback quando a base ainda está vazia. Resultados são parciais
- * (apenas as primeiras páginas das 4 modalidades mais comuns).
+ * Usado como fallback quando a base ainda está vazia.
+ * Busca até 500 itens por modalidade em todas as 12 modalidades,
+ * em lotes de 3 com pausa de 1,2 s para respeitar o rate-limit do PNCP.
  */
 export async function buscarEmTempoReal(parametros: {
   q: string;
@@ -238,13 +255,15 @@ export async function buscarEmTempoReal(parametros: {
 }): Promise<{ total: number; parcial: boolean; linhas: ResultadoLinha[] }> {
   const hoje = new Date();
   const dataFinal = `${hoje.getFullYear()}${String(hoje.getMonth() + 1).padStart(2, "0")}${String(hoje.getDate()).padStart(2, "0")}`;
-  const modalidades = parametros.modalidade ? [parametros.modalidade] : MODALIDADES_PRINCIPAIS;
+  const modalidades = parametros.modalidade ? [parametros.modalidade] : TODAS_MODALIDADES;
 
-  const resultados = await Promise.allSettled(
-    modalidades.map((mod) =>
-      buscarPropostasAbertas({ dataFinal, modalidade: mod, uf: parametros.uf ?? undefined, pagina: 1, tamanhoPagina: 50 }),
-    ),
+  const tarefas = modalidades.map(
+    (mod) => () =>
+      buscarPropostasAbertas({ dataFinal, modalidade: mod, uf: parametros.uf ?? undefined, pagina: 1, tamanhoPagina: 500 }),
   );
+
+  // 3 req simultâneos com 1,2 s entre lotes — PNCP dispara 429 perto de 1 req/s.
+  const resultados = await buscarEmLote(tarefas, 3, 1_200);
 
   const todas = resultados
     .filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof buscarPropostasAbertas>>> => r.status === "fulfilled")
@@ -264,7 +283,7 @@ export async function buscarEmTempoReal(parametros: {
   const inicio = (parametros.pagina - 1) * POR_PAGINA;
   return {
     total: filtradas.length,
-    parcial: !parametros.modalidade,
+    parcial: false,
     linhas: filtradas.slice(inicio, inicio + POR_PAGINA).map((c): ResultadoLinha => ({
       numeroControle: c.numeroControlePNCP,
       cnpj: c.orgaoEntidade.cnpj,
