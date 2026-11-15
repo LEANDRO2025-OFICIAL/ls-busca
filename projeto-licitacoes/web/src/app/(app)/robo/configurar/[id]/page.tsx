@@ -4,16 +4,16 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { ArrowLeft, Bot, ExternalLink, KeyRound, OctagonX, Play, Trash2 } from "lucide-react";
-import { acaoParadaItem, acaoRemoverRobo, acaoRodarSimulacao } from "@/app/acoes-robo";
+import { acaoParadaItem, acaoRemoverRobo } from "@/app/acoes-robo";
 import { acaoIniciarSessao, acaoRemoverCredencial, acaoSalvarCredencial } from "@/app/acoes-robo-sessao";
 import { Alerta, Botao, Esqueleto, Selo } from "@/components/ui/basicos";
-import { dataHora, PainelParadaGeral, ROTULO_REGRA } from "@/components/ui/robo";
+import { dataHora, PainelParadaGeral } from "@/components/ui/robo";
 import { FormularioRobo, type DadosFormularioRobo } from "@/components/ui/robo-formulario";
 import { obterDb } from "@/lib/dados/db";
-import { lerParadaGeral, listarSimulacoes, obterConfiguracao } from "@/lib/dados/robo";
+import { lerParadaGeral, obterConfiguracao } from "@/lib/dados/robo";
 import { listarCredenciais, listarSessoes, PORTAIS, ROTULO_PORTAL } from "@/lib/dados/robo-sessao";
 import { camposDoItem, segundosDeMs } from "@/lib/robo/formulario";
-import { ROTULO_ESTRATEGIA, PARAMETROS_PADRAO, type Regra } from "@/lib/robo/tipos";
+import { ROTULO_ESTRATEGIA, PARAMETROS_PADRAO } from "@/lib/robo/tipos";
 import { escreverCentesimos, formatarValor } from "@/lib/robo/valores";
 import { exigirOrganizacao } from "@/lib/sessao";
 
@@ -31,8 +31,6 @@ const MENSAGENS: Record<string, string> = {
   "credencial-removida": "Credencial removida.",
 };
 const ERROS: Record<string, string> = {
-  simulacao: "Não foi possível rodar a simulação. Confira os campos e tente de novo.",
-  concorrentes: "Inclua pelo menos um concorrente fictício.",
   "credencial-invalida": "Dados inválidos. Verifique portal, login e senha.",
   "sessao-invalida": "Dados da sessão inválidos.",
   "url-invalida": "URL inválida. Use https://...",
@@ -63,9 +61,8 @@ async function Conteudo({ params, searchParams }: Props) {
   const db = await obterDb();
   const dados = await obterConfiguracao(db, organizacaoId, id);
   if (!dados) notFound();
-  const [parada, simulacoes, credenciais, sessoes] = await Promise.all([
+  const [parada, credenciais, sessoes] = await Promise.all([
     lerParadaGeral(db, organizacaoId),
-    dados.config ? listarSimulacoes(db, organizacaoId, dados.config.id) : Promise.resolve([]),
     listarCredenciais(db, organizacaoId),
     dados.config ? listarSessoes(db, organizacaoId, dados.config.id) : Promise.resolve([]),
   ]);
@@ -124,7 +121,7 @@ async function Conteudo({ params, searchParams }: Props) {
       {config && config.itens.length > 0 && (
         <section aria-labelledby="titulo-itens" className="flex flex-col gap-3">
           <h2 id="titulo-itens" className="text-base font-semibold">
-            Itens e simulação
+            Itens
           </h2>
           <ul className="flex flex-col gap-2">
             {config.itens.map((item) => (
@@ -151,88 +148,6 @@ async function Conteudo({ params, searchParams }: Props) {
             ))}
           </ul>
 
-          <form action={acaoRodarSimulacao} className="grid gap-3 rounded-lg border border-line bg-surface p-4 sm:grid-cols-3">
-            <input type="hidden" name="voltar" value={voltar} />
-            <h3 className="text-sm font-semibold text-ink sm:col-span-3">Rodar disputa simulada</h3>
-            <div className="flex flex-col gap-1 sm:col-span-2">
-              <label htmlFor="sim-item" className="text-sm font-medium text-ink">
-                Item
-              </label>
-              <select id="sim-item" name="itemId" className={entrada}>
-                {config.itens.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    Item {item.numeroItem} · {item.descricao.slice(0, 60)}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex flex-col gap-1">
-              <label htmlFor="sim-semente" className="text-sm font-medium text-ink">
-                Semente
-              </label>
-              <input id="sim-semente" name="semente" defaultValue="2026" inputMode="numeric" className={entrada} aria-describedby="sim-semente-dica" />
-              <p id="sim-semente-dica" className="text-xs text-muted">
-                Mesma semente, mesma disputa.
-              </p>
-            </div>
-            {(
-              [
-                ["agressivos", "Concorrentes agressivos", "1"],
-                ["conservadores", "Conservadores", "1"],
-                ["desistentes", "Que desistem cedo", "1"],
-              ] as const
-            ).map(([nome, rotulo, padrao]) => (
-              <div key={nome} className="flex flex-col gap-1">
-                <label htmlFor={`sim-${nome}`} className="text-sm font-medium text-ink">
-                  {rotulo}
-                </label>
-                <select id={`sim-${nome}`} name={nome} defaultValue={padrao} className={entrada}>
-                  {[0, 1, 2, 3, 4].map((n) => (
-                    <option key={n}>{n}</option>
-                  ))}
-                </select>
-              </div>
-            ))}
-            <div className="flex flex-col gap-1">
-              <label htmlFor="sim-minutos" className="text-sm font-medium text-ink">
-                Fase aberta (min)
-              </label>
-              <input id="sim-minutos" name="minutos" defaultValue="10" inputMode="numeric" className={entrada} />
-            </div>
-            <div className="flex flex-col justify-end gap-1 text-sm text-ink sm:col-span-2">
-              <label className="flex items-center gap-2">
-                <input type="checkbox" name="suspensao" className="size-4 accent-accent" /> Sortear suspensão da disputa
-              </label>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" name="falhas" className="size-4 accent-accent" /> Sortear falhas de comunicação
-              </label>
-            </div>
-            <div className="sm:col-span-3">
-              <Botao type="submit" icone={Play}>
-                Rodar simulação
-              </Botao>
-            </div>
-          </form>
-        </section>
-      )}
-
-      {simulacoes.length > 0 && (
-        <section aria-labelledby="titulo-simulacoes" className="flex flex-col gap-2">
-          <h2 id="titulo-simulacoes" className="text-base font-semibold">
-            Simulações recentes
-          </h2>
-          <ul className="divide-y divide-line rounded-lg border border-line bg-bg">
-            {simulacoes.map((s) => (
-              <li key={s.id}>
-                <Link href={`/robo/simulacao/${s.id}`} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 text-sm hover:bg-surface">
-                  <span className="min-w-0 flex-1 truncate text-ink">{s.descricaoItem}</span>
-                  <span className="text-xs text-muted">{ROTULO_REGRA[s.parouPor as Regra] ?? s.parouPor}</span>
-                  <Selo tom={s.resultado.minhaPosicao === 1 ? "sucesso" : "neutro"}>{s.resultado.minhaPosicao}º lugar</Selo>
-                  <span className="text-xs text-muted">{dataHora(s.quando)}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
         </section>
       )}
 

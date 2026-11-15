@@ -1,10 +1,8 @@
 // Robô de lance: acesso a dados. Toda leitura e escrita filtra pela organização de quem entrou.
-// Modo simulação: nada aqui envia lances a portal algum.
 import { sql } from "drizzle-orm";
 import type { Db } from "./db";
 import type { EntradaItem, EntradaRobo, ItemGravado, Modo } from "@/lib/robo/formulario";
-import type { EventoSimulado, ResultadoSimulado } from "@/lib/robo/simulador";
-import type { ConfigItem, Criterio, EstadoDisputa, RegistroDecisao } from "@/lib/robo/tipos";
+import type { ConfigItem, Criterio } from "@/lib/robo/tipos";
 
 export type LicitacaoDoFunil = {
   acompanhamentoId: string;
@@ -47,7 +45,6 @@ export type ResumoConfig = {
   itens: number;
   itensParados: number;
   atualizadoEm: Date;
-  ultimaSimulacao: { id: string; quando: Date; minhaPosicao: number } | null;
 };
 
 export async function listarConfiguracoes(db: Db, organizacaoId: string): Promise<ResumoConfig[]> {
@@ -62,22 +59,13 @@ export async function listarConfiguracoes(db: Db, organizacaoId: string): Promis
     itens: number;
     parados: number;
     updated_at: string | Date;
-    sim_id: string | null;
-    sim_quando: string | Date | null;
-    sim_posicao: number | null;
   }>(sql`
     select c.id, c.acompanhamento_id, l.objeto, l.orgao_nome, l.uf, c.criterio, c.modo, c.updated_at,
            (select count(*)::int from robo_item i where i.robo_config_id = c.id) as itens,
-           (select count(*)::int from robo_item i where i.robo_config_id = c.id and i.parada) as parados,
-           s.id as sim_id, s.created_at as sim_quando, (s.resultado->>'minhaPosicao')::int as sim_posicao
+           (select count(*)::int from robo_item i where i.robo_config_id = c.id and i.parada) as parados
       from robo_config c
       join acompanhamento a on a.id = c.acompanhamento_id and a.organizacao_id = c.organizacao_id
       join licitacao l on l.numero_controle_pncp = a.numero_controle_pncp
-      left join lateral (
-        select s.id, s.created_at, s.resultado from robo_simulacao s
-         where s.robo_config_id = c.id and s.organizacao_id = c.organizacao_id
-         order by s.created_at desc limit 1
-      ) s on true
      where c.organizacao_id = ${organizacaoId}
      order by c.updated_at desc
   `);
@@ -91,7 +79,6 @@ export async function listarConfiguracoes(db: Db, organizacaoId: string): Promis
     itens: c.itens,
     itensParados: c.parados,
     atualizadoEm: new Date(c.updated_at),
-    ultimaSimulacao: c.sim_id && c.sim_quando ? { id: c.sim_id, quando: new Date(c.sim_quando), minhaPosicao: c.sim_posicao ?? 0 } : null,
   }));
 }
 
@@ -315,6 +302,7 @@ export async function definirParadaGeral(db: Db, organizacaoId: string, usuarioI
 
 export type ItemParaSimular = { item: ItemGravado; configId: string; criterio: Criterio; modo: Modo; parametros: EntradaRobo["parametros"] };
 
+/** @deprecated Mantido apenas para o runner real. Use obterItemParaSimular só via runner. */
 export async function obterItemParaSimular(db: Db, organizacaoId: string, itemId: string): Promise<ItemParaSimular | null> {
   const r = await db.execute<LinhaItem & {
     config_id: string;
@@ -342,141 +330,5 @@ export async function obterItemParaSimular(db: Db, organizacaoId: string, itemId
       diferencaPropria: Number(l.diferenca_propria),
       diferencaMelhor: Number(l.diferenca_melhor),
     },
-  };
-}
-
-export type DecisaoGravada = RegistroDecisao & { repeticoes: number; ateMs: number };
-
-export type NovaSimulacao = {
-  configId: string;
-  itemId: string;
-  descricaoItem: string;
-  config: ConfigItem;
-  cenario: unknown;
-  resultado: ResultadoSimulado;
-  linhaDoTempo: EventoSimulado[];
-  parouPor: string;
-  decisoes: DecisaoGravada[];
-};
-
-/** Grava a sessão de simulação e a trilha de decisões, juntas (tudo ou nada). */
-export async function registrarSimulacao(db: Db, organizacaoId: string, usuarioId: string, s: NovaSimulacao): Promise<string | null> {
-  return db.transaction(async (tx) => {
-    const dono = await tx.execute<{ id: string }>(sql`
-      select i.id from robo_item i where i.id = ${s.itemId} and i.robo_config_id = ${s.configId} and i.organizacao_id = ${organizacaoId}
-    `);
-    if (!dono.rows[0]) return null;
-    const nova = await tx.execute<{ id: string }>(sql`
-      insert into robo_simulacao (organizacao_id, robo_config_id, robo_item_id, descricao_item, config, cenario, resultado,
-                                  linha_do_tempo, parou_por, criado_por)
-      values (${organizacaoId}, ${s.configId}, ${s.itemId}, ${s.descricaoItem}, ${JSON.stringify(s.config)}::jsonb,
-              ${JSON.stringify(s.cenario)}::jsonb, ${JSON.stringify(s.resultado)}::jsonb,
-              ${JSON.stringify(s.linhaDoTempo)}::jsonb, ${s.parouPor}, ${usuarioId})
-      returning id
-    `);
-    const id = nova.rows[0].id;
-    // Em remessas: uma inserção por linha seria lenta no banco embutido.
-    for (let inicio = 0; inicio < s.decisoes.length; inicio += 200) {
-      const lote = s.decisoes.slice(inicio, inicio + 200).map((d, j) => ({
-        ordem: inicio + j + 1,
-        instante_ms: d.instanteMs,
-        ate_ms: d.ateMs,
-        repeticoes: d.repeticoes,
-        acao: d.acao,
-        regra: d.regra,
-        valor: d.valor,
-        motivo: d.motivo,
-        empate_ficto: d.empateFicto,
-        envio: d.envio,
-        estado: d.estado,
-      }));
-      await tx.execute(sql`
-        insert into robo_decisao (organizacao_id, simulacao_id, ordem, instante_ms, ate_ms, repeticoes, acao, regra, valor,
-                                  motivo, empate_ficto, envio, estado)
-        select ${organizacaoId}, ${id}, x.ordem, x.instante_ms, x.ate_ms, x.repeticoes, x.acao, x.regra, x.valor,
-               x.motivo, x.empate_ficto, x.envio, x.estado
-          from jsonb_to_recordset(${JSON.stringify(lote)}::jsonb) as x(
-            ordem int, instante_ms bigint, ate_ms bigint, repeticoes int, acao text, regra text, valor bigint,
-            motivo text, empate_ficto text, envio text, estado jsonb)
-      `);
-    }
-    return id;
-  });
-}
-
-export type ResumoSimulacao = { id: string; quando: Date; descricaoItem: string; resultado: ResultadoSimulado; parouPor: string };
-
-export async function listarSimulacoes(db: Db, organizacaoId: string, configId: string, limite = 20): Promise<ResumoSimulacao[]> {
-  const r = await db.execute<{ id: string; created_at: string | Date; descricao_item: string; resultado: ResultadoSimulado; parou_por: string }>(sql`
-    select id, created_at, descricao_item, resultado, parou_por from robo_simulacao
-     where robo_config_id = ${configId} and organizacao_id = ${organizacaoId}
-     order by created_at desc limit ${limite}
-  `);
-  return r.rows.map((s) => ({ id: s.id, quando: new Date(s.created_at), descricaoItem: s.descricao_item, resultado: s.resultado, parouPor: s.parou_por }));
-}
-
-export type SimulacaoCompleta = ResumoSimulacao & {
-  acompanhamentoId: string | null;
-  config: ConfigItem;
-  cenario: { semente: number; modo: Modo; meuLanceInicial?: number; concorrentes: { nome: string; perfil: string; lanceInicial: number; pisoProprio: number }[]; duracaoAbertaMs: number };
-  linhaDoTempo: EventoSimulado[];
-  decisoes: DecisaoGravada[];
-};
-
-export async function obterSimulacao(db: Db, organizacaoId: string, id: string): Promise<SimulacaoCompleta | null> {
-  const r = await db.execute<{
-    id: string;
-    created_at: string | Date;
-    descricao_item: string;
-    resultado: ResultadoSimulado;
-    parou_por: string;
-    config: ConfigItem;
-    cenario: SimulacaoCompleta["cenario"];
-    linha_do_tempo: EventoSimulado[];
-    acompanhamento_id: string | null;
-  }>(sql`
-    select s.id, s.created_at, s.descricao_item, s.resultado, s.parou_por, s.config, s.cenario, s.linha_do_tempo, c.acompanhamento_id
-      from robo_simulacao s left join robo_config c on c.id = s.robo_config_id and c.organizacao_id = s.organizacao_id
-     where s.id = ${id} and s.organizacao_id = ${organizacaoId}
-  `);
-  const s = r.rows[0];
-  if (!s) return null;
-  const d = await db.execute<{
-    instante_ms: string | number;
-    ate_ms: string | number;
-    repeticoes: number;
-    acao: RegistroDecisao["acao"];
-    regra: RegistroDecisao["regra"];
-    valor: string | number | null;
-    motivo: string;
-    empate_ficto: string | null;
-    envio: RegistroDecisao["envio"];
-    estado: EstadoDisputa | null;
-  }>(sql`
-    select instante_ms, ate_ms, repeticoes, acao, regra, valor, motivo, empate_ficto, envio, estado
-      from robo_decisao where simulacao_id = ${id} and organizacao_id = ${organizacaoId} order by ordem
-  `);
-  return {
-    id: s.id,
-    quando: new Date(s.created_at),
-    descricaoItem: s.descricao_item,
-    resultado: s.resultado,
-    parouPor: s.parou_por,
-    acompanhamentoId: s.acompanhamento_id,
-    config: s.config,
-    cenario: s.cenario,
-    linhaDoTempo: s.linha_do_tempo,
-    decisoes: d.rows.map((x) => ({
-      instanteMs: Number(x.instante_ms),
-      ateMs: Number(x.ate_ms),
-      repeticoes: x.repeticoes,
-      acao: x.acao,
-      regra: x.regra,
-      valor: numeroOuNull(x.valor),
-      motivo: x.motivo,
-      empateFicto: x.empate_ficto,
-      envio: x.envio,
-      estado: x.estado,
-    })),
   };
 }

@@ -5,7 +5,7 @@ import { Suspense } from "react";
 import { Bot, Columns3, Settings2 } from "lucide-react";
 import { EstadoVazio, Esqueleto, Selo } from "@/components/ui/basicos";
 import { formatarValor } from "@/components/ui/licitacao";
-import { AvisoModoSimulacao, dataHora, PainelParadaGeral } from "@/components/ui/robo";
+import { dataHora, PainelParadaGeral } from "@/components/ui/robo";
 import { obterDb } from "@/lib/dados/db";
 import { licitacoesParaRobo, listarConfiguracoes, lerParadaGeral } from "@/lib/dados/robo";
 import { ROTULO_MODO } from "@/lib/robo/formulario";
@@ -18,7 +18,7 @@ type Parametros = Promise<Record<string, string | string[] | undefined>>;
 const MENSAGENS: Record<string, string> = {
   parada: "Parada de emergência acionada. Todos os itens foram parados.",
   liberada: "Parada geral liberada. Os itens continuam parados até serem liberados um a um.",
-  removido: "Configuração removida. As simulações já feitas continuam guardadas.",
+  removido: "Configuração removida.",
 };
 
 const linkAcao = "inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-semibold text-accent hover:bg-accent-soft";
@@ -30,9 +30,8 @@ export default function PaginaRobo({ searchParams }: { searchParams: Parametros 
         <h1 className="text-xl font-bold">Robô de lance</h1>
         <p className="text-sm text-muted">
           Configure, por licitação do funil e por item, até onde o robô pode ir (piso), como ele disputa e os limites de
-          segurança. Teste a configuração em disputas simuladas antes de qualquer sessão.
+          segurança.
         </p>
-        <AvisoModoSimulacao />
       </header>
       <Suspense fallback={<Esqueleto className="h-72 w-full" />}>
         <Conteudo searchParams={searchParams} />
@@ -90,11 +89,6 @@ async function Conteudo({ searchParams }: { searchParams: Parametros }) {
                     {c.itens} {c.itens === 1 ? "item" : "itens"}
                   </Selo>
                   {c.itensParados > 0 && <Selo tom="perigo">{c.itensParados} parado(s)</Selo>}
-                  {c.ultimaSimulacao && (
-                    <Link href={`/robo/simulacao/${c.ultimaSimulacao.id}`} className="text-xs text-accent hover:underline">
-                      Última simulação: {c.ultimaSimulacao.minhaPosicao}º lugar, {dataHora(c.ultimaSimulacao.quando)}
-                    </Link>
-                  )}
                 </div>
               </li>
             ))}
