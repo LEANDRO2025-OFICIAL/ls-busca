@@ -1,20 +1,15 @@
 "use server";
 
-// Robô de lance: ações das telas. MODO SIMULAÇÃO: nenhuma ação aqui envia lance a portal real.
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { obterDb } from "@/lib/dados/db";
 import {
   definirParadaDoItem,
   definirParadaGeral,
-  lerParadaGeral,
-  obterItemParaSimular,
-  registrarSimulacao,
   removerConfiguracao,
   salvarConfiguracao,
 } from "@/lib/dados/robo";
-import { configDoItem, lerFormularioRobo } from "@/lib/robo/formulario";
-import { compactarTrilha, montarCenario, simularDisputa, type Perfil } from "@/lib/robo/simulador";
+import { lerFormularioRobo } from "@/lib/robo/formulario";
 import { exigirOrganizacao } from "@/lib/sessao";
 
 export type EstadoFormularioRobo = { erros: Record<string, string>; valores: Record<string, string> | null; tentativa: number };
@@ -70,67 +65,3 @@ export async function acaoRemoverRobo(formData: FormData) {
   redirect("/robo?ok=removido");
 }
 
-const esquemaSimulacao = z.object({
-  itemId: z.uuid(),
-  semente: z.coerce.number().int().min(1).max(2_147_483_647),
-  agressivos: z.coerce.number().int().min(0).max(4),
-  conservadores: z.coerce.number().int().min(0).max(4),
-  desistentes: z.coerce.number().int().min(0).max(4),
-  minutos: z.coerce.number().int().min(1).max(60),
-});
-
-/** Roda uma disputa simulada inteira (relógio virtual: leva milissegundos) e grava sessão e trilha. */
-export async function acaoRodarSimulacao(formData: FormData) {
-  const { organizacaoId, usuarioId } = await exigirOrganizacao();
-  const volta = destino(formData.get("voltar"));
-  const dados = esquemaSimulacao.safeParse({
-    itemId: formData.get("itemId"),
-    semente: formData.get("semente"),
-    agressivos: formData.get("agressivos"),
-    conservadores: formData.get("conservadores"),
-    desistentes: formData.get("desistentes"),
-    minutos: formData.get("minutos"),
-  });
-  const erro = (codigo: string): never => redirect(`${volta}${volta.includes("?") ? "&" : "?"}erro=${codigo}`);
-  if (!dados.success) erro("simulacao");
-  const d = dados.data!;
-  const perfis: Perfil[] = [
-    ...Array<Perfil>(d.agressivos).fill("agressivo"),
-    ...Array<Perfil>(d.conservadores).fill("conservador"),
-    ...Array<Perfil>(d.desistentes).fill("desistente"),
-  ];
-  if (perfis.length === 0) erro("concorrentes");
-
-  const db = await obterDb();
-  const alvo = await obterItemParaSimular(db, organizacaoId, d.itemId);
-  if (!alvo) erro("simulacao");
-  const { item, configId, criterio, modo, parametros } = alvo!;
-  const paradaGeral = (await lerParadaGeral(db, organizacaoId)).ativa;
-  const config = configDoItem(criterio, item);
-  const cenario = montarCenario({
-    semente: d.semente,
-    criterio,
-    modo,
-    valorDePartida: item.valorReferencia,
-    perfis,
-    duracaoAbertaMs: d.minutos * 60_000,
-    parametros,
-    chanceSuspensaoPorMinuto: formData.get("suspensao") === "on" ? 0.03 : 0,
-    chanceErroConector: formData.get("falhas") === "on" ? 0.05 : 0,
-  });
-  // A parada geral é lida no início: a simulação inteira roda em milissegundos, numa só ação.
-  const s = await simularDisputa(config, cenario, () => ({ paradaGlobal: paradaGeral }));
-  const id = await registrarSimulacao(db, organizacaoId, usuarioId, {
-    configId,
-    itemId: item.id,
-    descricaoItem: `Item ${item.numeroItem} · ${item.descricao}`,
-    config,
-    cenario,
-    resultado: s.resultado,
-    linhaDoTempo: s.linhaDoTempo,
-    parouPor: s.registros.at(-1)?.regra ?? "sem_decisao",
-    decisoes: compactarTrilha(s.registros),
-  });
-  if (!id) erro("simulacao");
-  redirect(`/robo/simulacao/${id}`);
-}
