@@ -9,7 +9,6 @@ import {
   ChartColumn,
   Columns3,
   FolderOpen,
-  Globe2,
   House,
   Landmark,
   LifeBuoy,
@@ -40,7 +39,6 @@ const GRUPOS: Grupo[] = [
       { href: "/para-voce", rotulo: "Para sua empresa", icone: Sparkles },
       { href: "/alertas", rotulo: "Alertas", icone: Bell },
       { href: "/comunidade", rotulo: "Grandes licitações", icone: Landmark },
-      { href: "/fontes", rotulo: "Fontes de dados", icone: Globe2 },
     ],
   },
   {
