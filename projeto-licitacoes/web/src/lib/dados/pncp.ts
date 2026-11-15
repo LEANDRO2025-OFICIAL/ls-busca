@@ -5,6 +5,51 @@ import { cacheLife } from "next/cache";
 const BASE = "https://pncp.gov.br/api/consulta/v1";
 const USER_AGENT = "licitacoes-app/0.1 (ingestao de dados publicos do PNCP)";
 
+/**
+ * Ambientes CCR (Claude Code Remote) roteiam tráfego pelo proxy local HTTPS_PROXY,
+ * mas o fetch patcheado pelo Next.js ignora a variável. Neste caso, usa-se
+ * node:http CONNECT + node:https diretamente, que respeitam o proxy.
+ * Em produção (Railway), HTTPS_PROXY não está definido e o fetch padrão é usado.
+ */
+async function fetchPncp(url: URL, cabecalhos: Record<string, string>): Promise<Response> {
+  const proxyEnv = process.env.HTTPS_PROXY ?? process.env.https_proxy;
+  if (!proxyEnv) {
+    return fetch(url.toString(), {
+      headers: cabecalhos,
+      cache: "no-store",
+      signal: AbortSignal.timeout(30_000),
+    });
+  }
+  const { request: httpRequest } = await import("node:http");
+  const { request: httpsRequest } = await import("node:https");
+  const { readFileSync } = await import("node:fs");
+  const proxy = new URL(proxyEnv);
+  return new Promise((resolve, reject) => {
+    const proxyReq = httpRequest(
+      { host: proxy.hostname, port: Number(proxy.port), method: "CONNECT", path: `${url.hostname}:443`, headers: { Host: `${url.hostname}:443` } },
+      () => {},
+    );
+    const timer = setTimeout(() => { proxyReq.destroy(); reject(new Error("timeout")); }, 30_000);
+    proxyReq.on("connect", (_r, socket) => {
+      let ca: Buffer | undefined;
+      try { ca = readFileSync("/root/.ccr/ca-bundle.crt"); } catch {}
+      const req = httpsRequest(
+        { host: url.hostname, path: url.pathname + url.search, method: "GET", socket, agent: false, headers: { ...cabecalhos, Host: url.hostname }, ...(ca ? { ca } : {}) },
+        (res) => {
+          const chunks: Buffer[] = [];
+          res.on("data", (d: Buffer) => chunks.push(d));
+          res.on("end", () => { clearTimeout(timer); resolve(new Response(Buffer.concat(chunks), { status: res.statusCode ?? 200 })); });
+          res.on("error", (e) => { clearTimeout(timer); reject(e); });
+        },
+      );
+      req.on("error", (e) => { clearTimeout(timer); reject(e); });
+      req.end();
+    });
+    proxyReq.on("error", (e) => { clearTimeout(timer); reject(e); });
+    proxyReq.end();
+  });
+}
+
 export type CompraPncp = {
   numeroControlePNCP: string;
   anoCompra: number;
@@ -59,11 +104,7 @@ export async function buscarPropostasAbertas(parametros: {
   for (let tentativa = 0; ; tentativa++) {
     let resposta: Response;
     try {
-      resposta = await fetch(url, {
-        headers: { Accept: "application/json", "User-Agent": USER_AGENT },
-        cache: "no-store",
-        signal: AbortSignal.timeout(30_000),
-      });
+      resposta = await fetchPncp(url, { Accept: "application/json", "User-Agent": USER_AGENT });
     } catch (erro) {
       // Timeout ou queda de rede: trata como instabilidade e tenta de novo.
       if (tentativa < 3) {
