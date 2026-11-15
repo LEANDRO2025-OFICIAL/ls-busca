@@ -2,6 +2,7 @@ import { sql, type SQL } from "drizzle-orm";
 import { calcularAderencia } from "@/lib/aderencia";
 import type { Db } from "./db";
 import { listaTexto, type Perfil } from "./perfil";
+import { buscarPropostasAbertas, dataBrasilia } from "./pncp";
 
 export const POR_PAGINA = 20;
 
@@ -214,6 +215,74 @@ export async function situacaoDaBase(db: Db) {
   return {
     abertas: Number(linha?.abertas ?? 0),
     ultimaIngestao: linha?.ultima ? new Date(linha.ultima) : null,
+  };
+}
+
+// Modalidades mais frequentes: Pregão Eletrônico, Pregão Presencial, Concorrência, Concorrência Eletrônica
+const MODALIDADES_PRINCIPAIS = [6, 5, 1, 12];
+
+function normalizar(s: string) {
+  return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
+
+/**
+ * Busca ao vivo na API pública do PNCP — sem banco local.
+ * Usado como fallback quando a base ainda está vazia. Resultados são parciais
+ * (apenas as primeiras páginas das 4 modalidades mais comuns).
+ */
+export async function buscarEmTempoReal(parametros: {
+  q: string;
+  uf?: string | null;
+  modalidade?: number | null;
+  pagina: number;
+}): Promise<{ total: number; parcial: boolean; linhas: ResultadoLinha[] }> {
+  const hoje = new Date();
+  const dataFinal = `${hoje.getFullYear()}${String(hoje.getMonth() + 1).padStart(2, "0")}${String(hoje.getDate()).padStart(2, "0")}`;
+  const modalidades = parametros.modalidade ? [parametros.modalidade] : MODALIDADES_PRINCIPAIS;
+
+  const resultados = await Promise.allSettled(
+    modalidades.map((mod) =>
+      buscarPropostasAbertas({ dataFinal, modalidade: mod, uf: parametros.uf ?? undefined, pagina: 1, tamanhoPagina: 50 }),
+    ),
+  );
+
+  const todas = resultados
+    .filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof buscarPropostasAbertas>>> => r.status === "fulfilled")
+    .flatMap((r) => r.value.data);
+
+  const q = normalizar(parametros.q.trim());
+  const filtradas = q
+    ? todas.filter((c) => normalizar(c.objetoCompra).includes(q) || normalizar(c.orgaoEntidade.razaoSocial).includes(q))
+    : todas;
+
+  filtradas.sort((a, b) => {
+    const da = new Date(a.dataEncerramentoProposta ?? "9999").getTime();
+    const db = new Date(b.dataEncerramentoProposta ?? "9999").getTime();
+    return da - db;
+  });
+
+  const inicio = (parametros.pagina - 1) * POR_PAGINA;
+  return {
+    total: filtradas.length,
+    parcial: !parametros.modalidade,
+    linhas: filtradas.slice(inicio, inicio + POR_PAGINA).map((c): ResultadoLinha => ({
+      numeroControle: c.numeroControlePNCP,
+      cnpj: c.orgaoEntidade.cnpj,
+      ano: c.anoCompra,
+      sequencial: c.sequencialCompra,
+      objeto: c.objetoCompra.trim(),
+      orgao: c.orgaoEntidade.razaoSocial,
+      municipio: c.unidadeOrgao.municipioNome ?? null,
+      uf: c.unidadeOrgao.ufSigla,
+      modalidade: c.modalidadeNome,
+      valorCentavos: c.valorTotalEstimado == null ? null : Math.round(c.valorTotalEstimado * 100),
+      encerramento: dataBrasilia(c.dataEncerramentoProposta),
+      publicacao: dataBrasilia(c.dataPublicacaoPncp),
+      etapa: null,
+      modalidadeId: c.modalidadeId,
+      termosCasados: [],
+      excluidosCasados: [],
+    })),
   };
 }
 

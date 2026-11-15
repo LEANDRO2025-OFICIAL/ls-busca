@@ -2,12 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
-import { BellPlus, DatabaseZap, SearchX } from "lucide-react";
+import { BellPlus, SearchX } from "lucide-react";
 import { acaoAcompanhar, acaoSalvarBusca } from "@/app/acoes";
 import { Botao, Esqueleto, EstadoVazio } from "@/components/ui/basicos";
 import { BuscaComTermos, FiltroLink } from "@/components/ui/busca";
 import { CabecalhoLista, LinhaLicitacao } from "@/components/ui/licitacao";
-import { aderenciaDaLinha, buscarLicitacoes, POR_PAGINA, situacaoDaBase } from "@/lib/dados/busca";
+import { aderenciaDaLinha, buscarEmTempoReal, buscarLicitacoes, POR_PAGINA, situacaoDaBase } from "@/lib/dados/busca";
 import { obterDb } from "@/lib/dados/db";
 import { listarModalidades, obterPerfil, UFS } from "@/lib/dados/perfil";
 import { ehEtapa, NOME_ETAPA } from "@/lib/etapas";
@@ -48,22 +48,28 @@ async function Resultados({ searchParams }: { searchParams: ParametrosBusca }) {
   const db = await obterDb();
   const perfil = await obterPerfil(db, organizacaoId);
   const temRamo = Boolean(perfil && perfil.termos.length > 0);
-  const resultado = await buscarLicitacoes(db, organizacaoId, {
-    q,
-    uf,
-    municipio,
-    modalidade,
-    valorMinCentavos: valorMin == null ? null : valorMin * 100,
-    valorMaxCentavos: valorMax == null ? null : valorMax * 100,
-    encerraEmDias: encerra,
-    pagina,
-    perfil,
-    apenasRamo: ramo && temRamo,
-    novasDesde: desde,
-    aderenciaMin: aderencia,
-  });
   const base = await situacaoDaBase(db);
   const modalidades = await listarModalidades(db);
+
+  const aoVivo = base.abertas === 0;
+  const resultado = aoVivo
+    ? await buscarEmTempoReal({ q, uf, modalidade, pagina }).catch(() => ({ total: 0, parcial: false, linhas: [] }))
+    : await buscarLicitacoes(db, organizacaoId, {
+        q,
+        uf,
+        municipio,
+        modalidade,
+        valorMinCentavos: valorMin == null ? null : valorMin * 100,
+        valorMaxCentavos: valorMax == null ? null : valorMax * 100,
+        encerraEmDias: encerra,
+        pagina,
+        perfil,
+        apenasRamo: ramo && temRamo,
+        novasDesde: desde,
+        aderenciaMin: aderencia,
+      });
+
+  const aoVivoEParcial = aoVivo && "parcial" in resultado && resultado.parcial === true;
 
   const agora = new Date();
   const extras = Object.fromEntries(
@@ -155,11 +161,22 @@ async function Resultados({ searchParams }: { searchParams: ParametrosBusca }) {
       </form>
 
       <p className="text-sm text-muted" aria-live="polite">
-        {base.abertas === 0
-          ? "Nenhuma licitação na base ainda."
+        {aoVivo
+          ? `${resultado.total} ${resultado.total === 1 ? "resultado" : "resultados"} ao vivo do PNCP`
           : `${resultado.total} ${resultado.total === 1 ? "licitação encontrada" : "licitações encontradas"} de ${base.abertas} abertas`}
         {base.ultimaIngestao && ` · base atualizada em ${formatoDataHora.format(base.ultimaIngestao)}`}
       </p>
+      {aoVivo && (
+        <p className="rounded-md bg-accent-soft px-3 py-2 text-xs text-accent-strong">
+          Resultados ao vivo do PNCP
+          {aoVivoEParcial ? " · amostragem das 4 principais modalidades" : null}
+          {" — "}
+          <a href="/api/cron/ingerir" className="font-semibold underline">
+            popular a base completa
+          </a>{" "}
+          para buscas mais completas.
+        </p>
+      )}
 
       {desde && (
         <p role="status" className="flex flex-wrap items-center gap-2 rounded-md bg-accent-soft px-3 py-2 text-sm text-accent-strong">
@@ -192,22 +209,11 @@ async function Resultados({ searchParams }: { searchParams: ParametrosBusca }) {
         </form>
       )}
 
-      {base.abertas === 0 ? (
-        <EstadoVazio
-          icone={DatabaseZap}
-          titulo="A base ainda está vazia"
-          texto="Rode a ingestão do PNCP para trazer as licitações abertas do país. Em produção isso roda sozinho a cada 3 horas."
-          acao={
-            <a href="/api/cron/ingerir" className="text-sm font-semibold text-accent hover:underline">
-              Rodar a ingestão agora (desenvolvimento)
-            </a>
-          }
-        />
-      ) : resultado.linhas.length === 0 ? (
+      {resultado.linhas.length === 0 ? (
         <EstadoVazio
           icone={SearchX}
-          titulo="Nada encontrado com esses filtros"
-          texto="Tente um termo mais geral, tire uma palavra com hífen ou desligue o recorte de prazo."
+          titulo={aoVivo ? "Nenhum resultado no PNCP para esse termo" : "Nada encontrado com esses filtros"}
+          texto={aoVivo ? "Tente um termo mais geral ou verifique a grafia. Os resultados vêm das 4 principais modalidades do PNCP." : "Tente um termo mais geral, tire uma palavra com hífen ou desligue o recorte de prazo."}
           acao={
             <Link href="/buscar" className="text-sm font-semibold text-accent hover:underline">
               Limpar a busca
