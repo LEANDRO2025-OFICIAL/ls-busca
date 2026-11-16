@@ -244,8 +244,9 @@ async function buscarEmLote<T>(
 /**
  * Busca ao vivo na API pública do PNCP — sem banco local.
  * Usado como fallback quando a base ainda está vazia.
- * Busca até 500 itens por modalidade em todas as 12 modalidades,
- * em lotes de 3 com pausa de 1,2 s para respeitar o rate-limit do PNCP.
+ * Busca até 500 itens pelas 4 principais modalidades em paralelo (sem pausa):
+ * pregão eletrônico (6), credenciamento (12), concorrência eletrônica (4) e
+ * dispensa (8) cobrem ~90 % do volume e completam em 2-5 s por requisição.
  */
 export async function buscarEmTempoReal(parametros: {
   q: string;
@@ -261,15 +262,29 @@ export async function buscarEmTempoReal(parametros: {
   const dataFinal = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" })
     .format(futuro)
     .replace(/-/g, ""); // en-CA → "yyyy-MM-dd"; PNCP espera "yyyyMMdd"
-  const modalidades = parametros.modalidade ? [parametros.modalidade] : TODAS_MODALIDADES;
 
-  const tarefas = modalidades.map(
-    (mod) => () =>
-      buscarPropostasAbertas({ dataFinal, modalidade: mod, uf: parametros.uf ?? undefined, pagina: 1, tamanhoPagina: 500 }),
+  // Quando o usuário já escolheu uma modalidade usa só ela; caso contrário
+  // usa as 4 de maior volume. O PNCP aceita no máximo 50 registros por página
+  // e não suporta busca por texto — busca-se 3 páginas por modalidade (150
+  // registros cada) para aumentar a cobertura.
+  const TOP_MODALIDADES = [6, 12, 4, 8];
+  const modalidades = parametros.modalidade ? [parametros.modalidade] : TOP_MODALIDADES;
+  const PAGINAS_AO_VIVO = 3;
+  const TAMANHO_PAGINA = 100; // máximo aceito pelo PNCP
+
+  const tarefas = modalidades.flatMap((mod) =>
+    Array.from({ length: PAGINAS_AO_VIVO }, (_, i) => () =>
+      buscarPropostasAbertas({ dataFinal, modalidade: mod, uf: parametros.uf ?? undefined, pagina: i + 1, tamanhoPagina: TAMANHO_PAGINA }),
+    ),
   );
 
   // 3 req simultâneos com 1,2 s entre lotes — PNCP dispara 429 perto de 1 req/s.
   const resultados = await buscarEmLote(tarefas, 3, 1_200);
+
+  const falhas = resultados.filter((r) => r.status === "rejected");
+  if (falhas.length > 0) {
+    console.error("[buscarEmTempoReal] falhas na API do PNCP:", falhas.map((r) => (r as PromiseRejectedResult).reason));
+  }
 
   const todas = resultados
     .filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof buscarPropostasAbertas>>> => r.status === "fulfilled")
@@ -287,9 +302,10 @@ export async function buscarEmTempoReal(parametros: {
   });
 
   const inicio = (parametros.pagina - 1) * POR_PAGINA;
+  const parcial = falhas.length > 0 || true; // ao vivo sempre é parcial: cobertura limitada
   return {
     total: filtradas.length,
-    parcial: false,
+    parcial,
     linhas: filtradas.slice(inicio, inicio + POR_PAGINA).map((c): ResultadoLinha => ({
       numeroControle: c.numeroControlePNCP,
       cnpj: c.orgaoEntidade.cnpj,

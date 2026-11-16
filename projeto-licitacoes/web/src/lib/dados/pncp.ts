@@ -100,7 +100,7 @@ export async function buscarPropostasAbertas(parametros: {
   url.searchParams.set("codigoModalidadeContratacao", String(parametros.modalidade));
   if (parametros.uf) url.searchParams.set("uf", parametros.uf);
   url.searchParams.set("pagina", String(parametros.pagina));
-  url.searchParams.set("tamanhoPagina", String(parametros.tamanhoPagina ?? 50));
+  url.searchParams.set("tamanhoPagina", String(parametros.tamanhoPagina ?? 100));
 
   for (let tentativa = 0; ; tentativa++) {
     let resposta: Response;
