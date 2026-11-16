@@ -7,7 +7,7 @@ import { acaoAcompanhar, acaoSalvarBusca } from "@/app/acoes";
 import { Botao, Esqueleto, EstadoVazio } from "@/components/ui/basicos";
 import { BuscaComTermos, FiltroLink } from "@/components/ui/busca";
 import { CabecalhoLista, LinhaLicitacao } from "@/components/ui/licitacao";
-import { aderenciaDaLinha, buscarEmTempoReal, buscarLicitacoes, POR_PAGINA, situacaoDaBase } from "@/lib/dados/busca";
+import { aderenciaDaLinha, buscarEmTempoReal, buscarLicitacoes, type ErroConectividade, POR_PAGINA, situacaoDaBase } from "@/lib/dados/busca";
 import { obterDb } from "@/lib/dados/db";
 import { listarModalidades, obterPerfil, UFS } from "@/lib/dados/perfil";
 import { ehEtapa, NOME_ETAPA } from "@/lib/etapas";
@@ -53,7 +53,10 @@ async function Resultados({ searchParams }: { searchParams: ParametrosBusca }) {
 
   const aoVivo = base.abertas === 0;
   const resultado = aoVivo
-    ? await buscarEmTempoReal({ q, uf, modalidade, pagina }).catch(() => ({ total: 0, parcial: false, linhas: [] }))
+    ? await buscarEmTempoReal({ q, uf, modalidade, pagina }).catch((err: unknown) => {
+        console.error("[buscar/page] buscarEmTempoReal falhou:", err);
+        return { total: 0, parcial: true, linhas: [], erro: { tipo: "pncp_inacessivel" as const, mensagem: String(err) } };
+      })
     : await buscarLicitacoes(db, organizacaoId, {
         q,
         uf,
@@ -69,6 +72,8 @@ async function Resultados({ searchParams }: { searchParams: ParametrosBusca }) {
         aderenciaMin: aderencia,
       });
 
+  const erroPncp: ErroConectividade | undefined =
+    "erro" in resultado ? (resultado.erro as ErroConectividade | undefined) : undefined;
   const agora = new Date();
   const extras = Object.fromEntries(
     Object.entries(atuais).filter(([chave, valor]) => chave !== "q" && chave !== "desde" && valor),
@@ -164,13 +169,26 @@ async function Resultados({ searchParams }: { searchParams: ParametrosBusca }) {
           : `${resultado.total} ${resultado.total === 1 ? "licitação encontrada" : "licitações encontradas"} de ${base.abertas} abertas`}
         {base.ultimaIngestao && ` · base atualizada em ${formatoDataHora.format(base.ultimaIngestao)}`}
       </p>
-      {aoVivo && (
+      {aoVivo && !erroPncp && (
         <p className="rounded-md bg-accent-soft px-3 py-2 text-xs text-accent-strong">
           Resultados ao vivo do PNCP · todas as modalidades{" — "}
           <a href="/api/cron/ingerir" className="font-semibold underline">
             popular a base completa
           </a>{" "}
           para buscas ainda mais rápidas.
+        </p>
+      )}
+      {aoVivo && erroPncp && (
+        <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
+          <strong>PNCP inacessível a partir deste servidor</strong> — a base local está vazia e todas as requisições ao PNCP falharam.{" "}
+          <a href="/api/cron/ingerir" className="font-semibold underline">
+            Popular a base agora
+          </a>{" "}
+          para resolver definitivamente (requer header <code>Authorization: Bearer &lt;CRON_SECRET&gt;</code>). Teste de conectividade:{" "}
+          <a href="/api/diagnostico" className="font-semibold underline">
+            /api/diagnostico
+          </a>
+          .
         </p>
       )}
 

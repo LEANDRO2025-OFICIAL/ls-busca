@@ -89,13 +89,15 @@ const esperar = (ms: number) => new Promise((resolver) => setTimeout(resolver, m
 
 /** Contratações com recebimento de propostas em aberto. */
 export async function buscarPropostasAbertas(parametros: {
-  dataFinal: string; // yyyyMMdd
+  dataInicial?: string; // yyyyMMdd — início da janela de encerramento
+  dataFinal: string; // yyyyMMdd — fim da janela de encerramento
   modalidade: number;
   uf?: string;
   pagina: number;
   tamanhoPagina?: number;
 }): Promise<PaginaPncp> {
   const url = new URL(`${BASE}/contratacoes/proposta`);
+  if (parametros.dataInicial) url.searchParams.set("dataInicial", parametros.dataInicial);
   url.searchParams.set("dataFinal", parametros.dataFinal);
   url.searchParams.set("codigoModalidadeContratacao", String(parametros.modalidade));
   if (parametros.uf) url.searchParams.set("uf", parametros.uf);

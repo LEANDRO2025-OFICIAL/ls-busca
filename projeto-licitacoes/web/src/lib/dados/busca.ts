@@ -25,6 +25,8 @@ export type FiltrosBusca = {
   aderenciaMin?: number | null;
 };
 
+export type ErroConectividade = { tipo: "pncp_inacessivel"; mensagem: string };
+
 export type ResultadoLinha = {
   numeroControle: string;
   cnpj: string;
@@ -244,28 +246,26 @@ async function buscarEmLote<T>(
 /**
  * Busca ao vivo na API pública do PNCP — sem banco local.
  * Usado como fallback quando a base ainda está vazia.
- * Busca até 500 itens pelas 4 principais modalidades em paralelo (sem pausa):
+ * Busca 1 200 registros pelas 4 principais modalidades (3 páginas × 4 mods × 100 itens):
  * pregão eletrônico (6), credenciamento (12), concorrência eletrônica (4) e
- * dispensa (8) cobrem ~90 % do volume e completam em 2-5 s por requisição.
+ * dispensa (8) cobrem ~90 % do volume.
  */
 export async function buscarEmTempoReal(parametros: {
   q: string;
   uf?: string | null;
   modalidade?: number | null;
   pagina: number;
-}): Promise<{ total: number; parcial: boolean; linhas: ResultadoLinha[] }> {
+}): Promise<{ total: number; parcial: boolean; linhas: ResultadoLinha[]; erro?: ErroConectividade }> {
   const hoje = new Date();
-  // dataFinal deve ser uma data FUTURA para capturar propostas abertas (que encerram no futuro).
-  // Usar hoje retorna só propostas que já encerraram (encerramento <= hoje = expiradas).
-  // Espelha a lógica de ingestao.ts (janelaFim = hoje + 120 dias).
+  const dataInicial = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(hoje).replace(/-/g, "");
   const futuro = new Date(hoje.getTime() + 120 * 86_400_000);
   const dataFinal = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" })
     .format(futuro)
     .replace(/-/g, ""); // en-CA → "yyyy-MM-dd"; PNCP espera "yyyyMMdd"
 
   // Quando o usuário já escolheu uma modalidade usa só ela; caso contrário
-  // usa as 4 de maior volume. O PNCP aceita no máximo 50 registros por página
-  // e não suporta busca por texto — busca-se 3 páginas por modalidade (150
+  // usa as 4 de maior volume. O PNCP aceita no máximo 100 registros por página
+  // e não suporta busca por texto — busca-se 3 páginas por modalidade (300
   // registros cada) para aumentar a cobertura.
   const TOP_MODALIDADES = [6, 12, 4, 8];
   const modalidades = parametros.modalidade ? [parametros.modalidade] : TOP_MODALIDADES;
@@ -274,7 +274,7 @@ export async function buscarEmTempoReal(parametros: {
 
   const tarefas = modalidades.flatMap((mod) =>
     Array.from({ length: PAGINAS_AO_VIVO }, (_, i) => () =>
-      buscarPropostasAbertas({ dataFinal, modalidade: mod, uf: parametros.uf ?? undefined, pagina: i + 1, tamanhoPagina: TAMANHO_PAGINA }),
+      buscarPropostasAbertas({ dataInicial, dataFinal, modalidade: mod, uf: parametros.uf ?? undefined, pagina: i + 1, tamanhoPagina: TAMANHO_PAGINA }),
     ),
   );
 
@@ -284,6 +284,17 @@ export async function buscarEmTempoReal(parametros: {
   const falhas = resultados.filter((r) => r.status === "rejected");
   if (falhas.length > 0) {
     console.error("[buscarEmTempoReal] falhas na API do PNCP:", falhas.map((r) => (r as PromiseRejectedResult).reason));
+  }
+
+  // Todas as requisições falharam: PNCP inacessível a partir deste servidor.
+  if (falhas.length === resultados.length) {
+    const primeiraRazao = (falhas[0] as PromiseRejectedResult).reason;
+    return {
+      total: 0,
+      parcial: true,
+      linhas: [],
+      erro: { tipo: "pncp_inacessivel", mensagem: String(primeiraRazao) },
+    };
   }
 
   const todas = resultados
