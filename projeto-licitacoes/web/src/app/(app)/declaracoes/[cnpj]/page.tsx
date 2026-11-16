@@ -4,6 +4,7 @@ import { FileSignature } from "lucide-react";
 import { BotaoImprimir } from "@/components/ui/botao-imprimir";
 
 export const metadata: Metadata = { title: "Declarações" };
+export const instant = false;
 
 type EmpresaBrasilAPI = {
   cnpj: string;
