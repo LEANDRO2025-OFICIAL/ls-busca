@@ -146,7 +146,27 @@ export async function copiaAntesDeEscritaMassiva(motivo: string): Promise<void> 
 async function iniciarPostgres(url: string): Promise<Db> {
   const { Pool } = await import("pg");
   const { drizzle: drizzlePg } = await import("drizzle-orm/node-postgres");
-  const pool = new Pool({ connectionString: url, max: 5, ssl: { rejectUnauthorized: false } });
+  // SSL: valida o certificado do servidor. Antes era { rejectUnauthorized: false }, que aceita
+  // qualquer certificado e anula a proteção contra intermediário na conexão com o banco.
+  // Bancos gerenciados (Supabase, Neon) usam CA pública — validação padrão funciona com ?sslmode=require.
+  const semUrl = !/[?&]sslmode=/.test(url);
+  const ca = process.env.DATABASE_SSL_CA?.replace(/\\n/g, "\n");
+  const semVerificacao = process.env.DATABASE_SSL_NO_VERIFY === "1";
+  const ssl = semVerificacao
+    ? { rejectUnauthorized: false as const }
+    : ca
+      ? { rejectUnauthorized: true as const, ca }
+      : { rejectUnauthorized: true as const };
+  const pool = new Pool({
+    connectionString: url,
+    max: 5,
+    ssl: semUrl && process.env.NODE_ENV !== "production" ? undefined : ssl,
+  });
+  // Sem este handler, uma conexão ociosa derrubada pelo provedor (comum no Supabase) emite
+  // 'error' e DERRUBA o processo inteiro.
+  pool.on("error", (erro) => {
+    console.error("[LS Busca] Erro em conexão ociosa do pool do banco:", erro);
+  });
   try {
     const c = await pool.connect();
     c.release();

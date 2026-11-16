@@ -1,12 +1,14 @@
 import { copiaAntesDeEscritaMassiva, obterDb } from "@/lib/dados/db";
 import { avisarSemDerrubar, ingerir, MODALIDADES_COM_PROPOSTA, semear } from "@/lib/dados/ingestao";
+import { autorizarCron } from "@/lib/segredo-cron";
 
 export async function GET(request: Request) {
   // Ler o cabeçalho também torna a rota dinâmica (nunca pré-renderizada no build).
-  const autorizacao = request.headers.get("authorization");
-  const segredo = process.env.CRON_SECRET;
-  if (process.env.NODE_ENV === "production" && (!segredo || autorizacao !== `Bearer ${segredo}`)) {
-    return Response.json({ erro: "não autorizado" }, { status: 401 });
+  // Autorização idêntica em TODOS os ambientes: sem CRON_SECRET a rota não roda (503),
+  // e a comparação é em tempo constante.
+  const autorizacao = autorizarCron(request);
+  if (!autorizacao.ok) {
+    return Response.json({ erro: autorizacao.erro }, { status: autorizacao.status });
   }
 
   const db = await obterDb();
