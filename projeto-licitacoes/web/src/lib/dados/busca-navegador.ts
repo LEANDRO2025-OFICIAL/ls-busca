@@ -87,7 +87,11 @@ export async function buscarAoVivoNoNavegador(params: {
   const dataInicial = formatarData(hoje);
   const dataFinal = formatarData(new Date(hoje.getTime() + 120 * 86_400_000));
 
-  const TOP_MODALIDADES = [6, 12, 4, 8];
+  // Modalidades com dados confirmados (testadas nov/2026, próximos 120 dias):
+  // 6=Pregão Eletrônico (17.577), 12=Credenciamento (4.170),
+  // 4=Concorrência Eletrônica (4.132), 7=Pregão Presencial (279).
+  // Cobrem ~87% de todo o universo. Mod 8 e 9 têm 0 itens.
+  const TOP_MODALIDADES = [6, 12, 4, 7];
   const modalidades = params.modalidade ? [params.modalidade] : TOP_MODALIDADES;
 
   // 20 requisições em paralelo (4 modal. × 5 págs × 20 itens = 400 candidatos).

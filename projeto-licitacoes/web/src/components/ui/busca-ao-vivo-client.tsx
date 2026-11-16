@@ -82,8 +82,12 @@ export function BuscaAoVivoClient({
   return (
     <>
       <p className="text-sm text-muted" aria-live="polite">
-        {total} {total === 1 ? "resultado" : "resultados"} ao vivo do PNCP
-        {parcial && " (resultados parciais)"}
+        {total} {total === 1 ? "resultado encontrado" : "resultados encontrados"} na amostra ao vivo
+        {parcial && (
+          <span className="text-warning ml-1" title="Algumas requisições ao PNCP falharam — resultado pode estar incompleto">
+            (amostra parcial)
+          </span>
+        )}
       </p>
 
       {linhas.length === 0 ? (

@@ -166,13 +166,28 @@ async function Resultados({ searchParams }: { searchParams: ParametrosBusca }) {
         </p>
       )}
       {aoVivo && (
-        <p className="rounded-md bg-accent-soft px-3 py-2 text-xs text-accent-strong">
-          Resultados ao vivo do PNCP · todas as modalidades{" — "}
-          <a href="/api/cron/ingerir" className="font-semibold underline">
-            popular a base completa
-          </a>{" "}
-          para buscas ainda mais rápidas.
-        </p>
+        <div className="rounded-md bg-accent-soft px-3 py-2 text-xs text-accent-strong space-y-1">
+          <p>
+            Modo ao vivo — exibe uma <strong>amostra</strong> do PNCP (a API pública não tem busca por texto).{" "}
+            {q && (
+              <>
+                Para ver todos os resultados de <strong>&ldquo;{q}&rdquo;</strong>:{" "}
+                <a
+                  href={`https://pncp.gov.br/app/editais?q=${encodeURIComponent(q)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold underline"
+                >
+                  buscar no PNCP ↗
+                </a>{" · "}
+              </>
+            )}
+            <a href="/api/cron/ingerir" className="font-semibold underline">
+              popular base local
+            </a>{" "}
+            para busca completa.
+          </p>
+        </div>
       )}
 
       {desde && (
