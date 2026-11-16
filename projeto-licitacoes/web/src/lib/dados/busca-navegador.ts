@@ -3,7 +3,6 @@
 // Usado quando a base local está vazia (modo Railway sem ingestão).
 
 const BASE_PNCP = "https://pncp.gov.br/api/consulta/v1";
-const UA = "licitacoes-app/0.1 (ingestao de dados publicos do PNCP)";
 
 export const POR_PAGINA_NAVEGADOR = 20;
 
@@ -66,10 +65,10 @@ async function buscarPagina(
   url.searchParams.set("codigoModalidadeContratacao", String(modalidade));
   if (uf) url.searchParams.set("uf", uf);
   url.searchParams.set("pagina", String(pagina));
-  url.searchParams.set("tamanhoPagina", "100");
+  url.searchParams.set("tamanhoPagina", "20");
 
   const r = await fetch(url.toString(), {
-    headers: { Accept: "application/json", "User-Agent": UA },
+    headers: { Accept: "application/json" },
     signal: AbortSignal.timeout(25_000),
   });
   if (r.status === 204) return [];
@@ -91,9 +90,10 @@ export async function buscarAoVivoNoNavegador(params: {
   const TOP_MODALIDADES = [6, 12, 4, 8];
   const modalidades = params.modalidade ? [params.modalidade] : TOP_MODALIDADES;
 
-  // 12 requisições em paralelo — o browser gerencia a fila (~6 por domínio).
+  // 20 requisições em paralelo (4 modal. × 5 págs × 20 itens = 400 candidatos).
+  // O browser enfileira automaticamente (~6 conexões por domínio).
   const tarefas = modalidades.flatMap((mod) =>
-    [1, 2, 3].map((pg) => buscarPagina(dataInicial, dataFinal, mod, params.uf ?? undefined, pg)),
+    [1, 2, 3, 4, 5].map((pg) => buscarPagina(dataInicial, dataFinal, mod, params.uf ?? undefined, pg)),
   );
 
   const resultados = await Promise.allSettled(tarefas);
