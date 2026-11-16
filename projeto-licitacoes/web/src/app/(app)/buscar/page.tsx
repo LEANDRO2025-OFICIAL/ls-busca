@@ -6,8 +6,9 @@ import { BellPlus, SearchX } from "lucide-react";
 import { acaoAcompanhar, acaoSalvarBusca } from "@/app/acoes";
 import { Botao, Esqueleto, EstadoVazio } from "@/components/ui/basicos";
 import { BuscaComTermos, FiltroLink } from "@/components/ui/busca";
+import { BuscaAoVivoClient } from "@/components/ui/busca-ao-vivo-client";
 import { CabecalhoLista, LinhaLicitacao } from "@/components/ui/licitacao";
-import { aderenciaDaLinha, buscarEmTempoReal, buscarLicitacoes, type ErroConectividade, POR_PAGINA, situacaoDaBase } from "@/lib/dados/busca";
+import { aderenciaDaLinha, buscarLicitacoes, POR_PAGINA, situacaoDaBase } from "@/lib/dados/busca";
 import { obterDb } from "@/lib/dados/db";
 import { listarModalidades, obterPerfil, UFS } from "@/lib/dados/perfil";
 import { ehEtapa, NOME_ETAPA } from "@/lib/etapas";
@@ -53,10 +54,7 @@ async function Resultados({ searchParams }: { searchParams: ParametrosBusca }) {
 
   const aoVivo = base.abertas === 0;
   const resultado = aoVivo
-    ? await buscarEmTempoReal({ q, uf, modalidade, pagina }).catch((err: unknown) => {
-        console.error("[buscar/page] buscarEmTempoReal falhou:", err);
-        return { total: 0, parcial: true, linhas: [], erro: { tipo: "pncp_inacessivel" as const, mensagem: String(err) } };
-      })
+    ? null
     : await buscarLicitacoes(db, organizacaoId, {
         q,
         uf,
@@ -72,14 +70,12 @@ async function Resultados({ searchParams }: { searchParams: ParametrosBusca }) {
         aderenciaMin: aderencia,
       });
 
-  const erroPncp: ErroConectividade | undefined =
-    "erro" in resultado ? (resultado.erro as ErroConectividade | undefined) : undefined;
   const agora = new Date();
   const extras = Object.fromEntries(
     Object.entries(atuais).filter(([chave, valor]) => chave !== "q" && chave !== "desde" && valor),
   );
   const temFiltro = CHAVES_SALVAS.some((chave) => atuais[chave]);
-  const totalPaginas = Math.max(1, Math.ceil(resultado.total / POR_PAGINA));
+  const totalPaginas = resultado ? Math.max(1, Math.ceil(resultado.total / POR_PAGINA)) : 1;
   const campo = "h-9 rounded-md border border-line-strong bg-bg px-2 text-sm text-ink";
 
   return (
@@ -163,32 +159,19 @@ async function Resultados({ searchParams }: { searchParams: ParametrosBusca }) {
         )}
       </form>
 
-      <p className="text-sm text-muted" aria-live="polite">
-        {aoVivo
-          ? `${resultado.total} ${resultado.total === 1 ? "resultado" : "resultados"} ao vivo do PNCP`
-          : `${resultado.total} ${resultado.total === 1 ? "licitação encontrada" : "licitações encontradas"} de ${base.abertas} abertas`}
-        {base.ultimaIngestao && ` · base atualizada em ${formatoDataHora.format(base.ultimaIngestao)}`}
-      </p>
-      {aoVivo && !erroPncp && (
+      {!aoVivo && resultado && (
+        <p className="text-sm text-muted" aria-live="polite">
+          {`${resultado.total} ${resultado.total === 1 ? "licitação encontrada" : "licitações encontradas"} de ${base.abertas} abertas`}
+          {base.ultimaIngestao && ` · base atualizada em ${formatoDataHora.format(base.ultimaIngestao)}`}
+        </p>
+      )}
+      {aoVivo && (
         <p className="rounded-md bg-accent-soft px-3 py-2 text-xs text-accent-strong">
           Resultados ao vivo do PNCP · todas as modalidades{" — "}
           <a href="/api/cron/ingerir" className="font-semibold underline">
             popular a base completa
           </a>{" "}
           para buscas ainda mais rápidas.
-        </p>
-      )}
-      {aoVivo && erroPncp && (
-        <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
-          <strong>PNCP inacessível a partir deste servidor</strong> — a base local está vazia e todas as requisições ao PNCP falharam.{" "}
-          <a href="/api/cron/ingerir" className="font-semibold underline">
-            Popular a base agora
-          </a>{" "}
-          para resolver definitivamente (requer header <code>Authorization: Bearer &lt;CRON_SECRET&gt;</code>). Teste de conectividade:{" "}
-          <a href="/api/diagnostico" className="font-semibold underline">
-            /api/diagnostico
-          </a>
-          .
         </p>
       )}
 
@@ -223,69 +206,82 @@ async function Resultados({ searchParams }: { searchParams: ParametrosBusca }) {
         </form>
       )}
 
-      {resultado.linhas.length === 0 ? (
-        <EstadoVazio
-          icone={SearchX}
-          titulo={aoVivo ? "Nenhum resultado no PNCP para esse termo" : "Nada encontrado com esses filtros"}
-          texto={aoVivo ? "Tente um termo mais geral ou verifique a grafia. Os resultados vêm das 4 principais modalidades do PNCP." : "Tente um termo mais geral, tire uma palavra com hífen ou desligue o recorte de prazo."}
-          acao={
-            <Link href="/buscar" className="text-sm font-semibold text-accent hover:underline">
-              Limpar a busca
-            </Link>
-          }
+      {aoVivo ? (
+        <BuscaAoVivoClient
+          q={q}
+          uf={uf}
+          modalidade={modalidade}
+          pagina={pagina}
+          atuais={atuais}
+          acaoAcompanhar={acaoAcompanhar}
         />
-      ) : (
-        <div>
-          <CabecalhoLista />
-          <div className="flex flex-col gap-3 md:gap-0">
-            {resultado.linhas.map((l) => {
-              const aderencia = aderenciaDaLinha(perfil, l);
-              return (
-              <LinhaLicitacao
-                key={l.numeroControle}
-                agora={agora}
-                acaoAcompanhar={acaoAcompanhar}
-                l={{
-                  id: l.numeroControle,
-                  href: `/licitacao/${l.cnpj}/${l.ano}/${l.sequencial}`,
-                  objeto: l.objeto,
-                  orgao: l.orgao,
-                  municipio: l.municipio ?? "—",
-                  uf: l.uf,
-                  modalidade: l.modalidade,
-                  valorCentavos: l.valorCentavos,
-                  encerramento: l.encerramento,
-                  aderencia: aderencia?.pontuacao ?? null,
-                  motivos: aderencia?.motivos,
-                  etapaNoFunil: l.etapa && ehEtapa(l.etapa) ? NOME_ETAPA[l.etapa] : undefined,
-                }}
-              />
-              );
-            })}
-          </div>
-        </div>
-      )}
+      ) : resultado && (
+        <>
+          {resultado.linhas.length === 0 ? (
+            <EstadoVazio
+              icone={SearchX}
+              titulo="Nada encontrado com esses filtros"
+              texto="Tente um termo mais geral, tire uma palavra com hífen ou desligue o recorte de prazo."
+              acao={
+                <Link href="/buscar" className="text-sm font-semibold text-accent hover:underline">
+                  Limpar a busca
+                </Link>
+              }
+            />
+          ) : (
+            <div>
+              <CabecalhoLista />
+              <div className="flex flex-col gap-3 md:gap-0">
+                {resultado.linhas.map((l) => {
+                  const aderencia = aderenciaDaLinha(perfil, l);
+                  return (
+                    <LinhaLicitacao
+                      key={l.numeroControle}
+                      agora={agora}
+                      acaoAcompanhar={acaoAcompanhar}
+                      l={{
+                        id: l.numeroControle,
+                        href: `/licitacao/${l.cnpj}/${l.ano}/${l.sequencial}`,
+                        objeto: l.objeto,
+                        orgao: l.orgao,
+                        municipio: l.municipio ?? "—",
+                        uf: l.uf,
+                        modalidade: l.modalidade,
+                        valorCentavos: l.valorCentavos,
+                        encerramento: l.encerramento,
+                        aderencia: aderencia?.pontuacao ?? null,
+                        motivos: aderencia?.motivos,
+                        etapaNoFunil: l.etapa && ehEtapa(l.etapa) ? NOME_ETAPA[l.etapa] : undefined,
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
-      {totalPaginas > 1 && (
-        <nav aria-label="Paginação" className="flex items-center justify-between gap-3 text-sm">
-          {pagina > 1 ? (
-            <Link href={montarHref(atuais, { pagina: String(pagina - 1) })} className="font-semibold text-accent hover:underline">
-              ← Anterior
-            </Link>
-          ) : (
-            <span />
+          {totalPaginas > 1 && (
+            <nav aria-label="Paginação" className="flex items-center justify-between gap-3 text-sm">
+              {pagina > 1 ? (
+                <Link href={montarHref(atuais, { pagina: String(pagina - 1) })} className="font-semibold text-accent hover:underline">
+                  ← Anterior
+                </Link>
+              ) : (
+                <span />
+              )}
+              <span className="num text-muted">
+                Página {pagina} de {totalPaginas}
+              </span>
+              {pagina < totalPaginas ? (
+                <Link href={montarHref(atuais, { pagina: String(pagina + 1) })} className="font-semibold text-accent hover:underline">
+                  Próxima →
+                </Link>
+              ) : (
+                <span />
+              )}
+            </nav>
           )}
-          <span className="num text-muted">
-            Página {pagina} de {totalPaginas}
-          </span>
-          {pagina < totalPaginas ? (
-            <Link href={montarHref(atuais, { pagina: String(pagina + 1) })} className="font-semibold text-accent hover:underline">
-              Próxima →
-            </Link>
-          ) : (
-            <span />
-          )}
-        </nav>
+        </>
       )}
     </>
   );
