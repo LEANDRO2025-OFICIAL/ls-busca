@@ -118,8 +118,8 @@ async function Lista({ searchParams }: { searchParams: Parametros }) {
                     modalidade: l.modalidade,
                     valorCentavos: l.valorCentavos,
                     encerramento: l.encerramento,
-                    aderencia: aderencia?.pontuacao ?? null,
-                    motivos: aderencia?.motivos,
+                    aderencia: aderencia?.nota ?? null,
+                    motivos: aderencia?.motivos?.map((m) => m.detalhe),
                     etapaNoFunil: l.etapa && ehEtapa(l.etapa) ? NOME_ETAPA[l.etapa] : undefined,
                   }}
                 />

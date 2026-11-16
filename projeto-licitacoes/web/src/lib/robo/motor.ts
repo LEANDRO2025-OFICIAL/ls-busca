@@ -352,3 +352,42 @@ export function montarRegistro(estado: EstadoDisputa, decisao: Decisao, envio: R
     envio,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Melhoria 4: robô como copiloto (recomenda, não age).
+// O motor decide; esta camada traduz a decisão em linguagem para o humano confirmar.
+// ---------------------------------------------------------------------------
+
+export type Recomendacao = {
+  acao: "lancar" | "aguardar" | "parar";
+  valorCentavos: number | null;
+  justificativa: string;
+  confianca: "alta" | "media" | "baixa";
+};
+
+/**
+ * Converte a decisão do motor em recomendação legível para o operador.
+ * Nunca envia: apenas diz o que fazer e por quê.
+ */
+export function recomendar(
+  config: ConfigItem,
+  parametros: ParametrosDisputa,
+  estado: EstadoDisputa,
+  memoria: MemoriaRobo,
+): Recomendacao {
+  const decisao = decidir(config, parametros, estado, memoria, { paradaGlobal: false });
+
+  const confianca: Recomendacao["confianca"] =
+    decisao.regra === "piso_atingido" || decisao.regra === "erro_do_conector" ? "baixa"
+    : decisao.acao === "lancar" ? "alta"
+    : "media";
+
+  return {
+    acao: decisao.acao === "lancar" ? "lancar"
+        : decisao.acao === "parar" ? "parar"
+        : "aguardar",
+    valorCentavos: decisao.valor,
+    justificativa: decisao.motivo,
+    confianca,
+  };
+}

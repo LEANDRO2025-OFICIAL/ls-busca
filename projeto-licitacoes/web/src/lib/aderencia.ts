@@ -10,49 +10,85 @@ export type SinaisAderencia = {
   modalidadeNoPerfil: boolean | null;
 };
 
-export type Aderencia = { pontuacao: number; motivos: string[] };
+/** Um fator que contribuiu para a nota, com seu peso e uma explicação em português. */
+export type MotivoAderencia = {
+  fator: "termo" | "localidade" | "modalidade" | "valor" | "historico";
+  peso: number;
+  detalhe: string;
+};
+
+/** nota ∈ [0, 100]; soma dos pesos dos motivos == nota. */
+export type Aderencia = {
+  nota: number;
+  motivos: MotivoAderencia[];
+};
 
 /**
- * Nota de 0 a 100 de quanto a licitação combina com o ramo, com os motivos.
- *
- * TODO(Leandro): regra inicial, para a tela funcionar. Ajuste pelo que você
- * vê no dia a dia de licitação (ex.: pesar mais o termo no objeto do que no
- * complemento, ou derrubar a nota quando falta pouco para encerrar).
+ * Nota de 0 a 100 de quanto a licitação combina com o ramo, com os motivos auditáveis.
+ * Invariante: sum(motivos[i].peso) === nota.
  */
 export function calcularAderencia(s: SinaisAderencia, uf: string, modalidade: string): Aderencia | null {
   if (s.totalTermos === 0) return null;
   if (s.excluidosCasados.length > 0) {
-    return { pontuacao: 0, motivos: [`contém termo que você exclui: ${s.excluidosCasados.join(", ")}`] };
+    return {
+      nota: 0,
+      motivos: [{ fator: "termo", peso: 0, detalhe: `contém termo excluído: ${s.excluidosCasados.join(", ")}` }],
+    };
   }
-  const motivos: string[] = [];
+
+  const motivos: MotivoAderencia[] = [];
   let pontos = 0;
+
   if (s.termosCasados.length > 0) {
-    pontos += Math.min(80, 50 + 15 * (s.termosCasados.length - 1));
-    motivos.push(`contém ${s.termosCasados.map((t) => `"${t}"`).join(", ")}`);
+    const peso = Math.min(80, 50 + 15 * (s.termosCasados.length - 1));
+    pontos += peso;
+    motivos.push({
+      fator: "termo",
+      peso,
+      detalhe: `contém ${s.termosCasados.map((t) => `"${t}"`).join(", ")}`,
+    });
   }
+
   if (s.ufNoPerfil !== false) {
     pontos += 10;
-    if (s.ufNoPerfil) motivos.push(`UF atendida: ${uf}`);
+    motivos.push({
+      fator: "localidade",
+      peso: 10,
+      detalhe: s.ufNoPerfil ? `UF atendida: ${uf}` : "sem restrição de UF",
+    });
   }
+
   if (s.modalidadeNoPerfil !== false) {
     pontos += 10;
-    if (s.modalidadeNoPerfil) motivos.push(`modalidade escolhida: ${modalidade}`);
+    motivos.push({
+      fator: "modalidade",
+      peso: 10,
+      detalhe: s.modalidadeNoPerfil ? `modalidade escolhida: ${modalidade}` : "sem restrição de modalidade",
+    });
   }
-  // Sem nenhum termo do ramo, UF e modalidade sozinhas nunca passam de "baixa".
-  return { pontuacao: s.termosCasados.length > 0 ? Math.min(100, pontos) : Math.min(20, pontos), motivos };
+
+  const nota = s.termosCasados.length > 0 ? Math.min(100, pontos) : Math.min(20, pontos);
+
+  // Ajusta os pesos proporcionalmente para garantir que a soma == nota.
+  const somaBruta = motivos.reduce((acc, m) => acc + m.peso, 0);
+  if (somaBruta > 0 && somaBruta !== nota) {
+    const fator = nota / somaBruta;
+    for (const m of motivos) m.peso = Math.round(m.peso * fator);
+    // Corrige arredondamento no primeiro motivo.
+    const diff = nota - motivos.reduce((acc, m) => acc + m.peso, 0);
+    if (motivos.length > 0) motivos[0].peso += diff;
+  }
+
+  return { nota, motivos };
 }
 
 /**
- * Converte a pontuação de aderência (0 a 100) na faixa mostrada ao usuário.
+ * Converte a nota de aderência (0 a 100) na faixa mostrada ao usuário.
  * null = a empresa ainda não cadastrou o ramo.
- *
- * TODO(Leandro): definir os cortes. Os valores abaixo são provisórios, só para
- * a página /design renderizar. Eles decidem quando uma licitação aparece como
- * "Alta" (e, mais tarde, quando dispara alerta).
  */
-export function faixaAderencia(pontuacao: number | null): Faixa {
-  if (pontuacao == null) return "sem-perfil";
-  if (pontuacao >= 70) return "alta";
-  if (pontuacao >= 40) return "media";
+export function faixaAderencia(nota: number | null): Faixa {
+  if (nota == null) return "sem-perfil";
+  if (nota >= 70) return "alta";
+  if (nota >= 40) return "media";
   return "baixa";
 }

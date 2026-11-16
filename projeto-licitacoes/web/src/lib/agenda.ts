@@ -115,6 +115,32 @@ function dobrar(linha: string): string {
   return partes.join("\r\n ");
 }
 
+// ---------------------------------------------------------------------------
+// Melhoria 7: prazos como calendário de decisão.
+// ---------------------------------------------------------------------------
+
+export type UrgenciaItem = "urgente" | "atencao" | "normal";
+
+/**
+ * Classifica a urgência de uma licitação com base no prazo de encerramento e na fase do funil.
+ * - urgente: até 3 dias e proposta ainda não enviada
+ * - atencao: até 7 dias
+ * - normal: demais casos
+ */
+export function classificarUrgencia(
+  encerramento: Date | string | null | undefined,
+  faseDoFunil: string | null | undefined,
+  agora: Date = new Date(),
+): UrgenciaItem {
+  if (!encerramento) return "normal";
+  const dataEnc = typeof encerramento === "string" ? new Date(encerramento) : encerramento;
+  const diasRestantes = (dataEnc.getTime() - agora.getTime()) / 86_400_000;
+  if (diasRestantes < 0) return "normal";
+  if (diasRestantes <= 3 && faseDoFunil !== "proposta_enviada") return "urgente";
+  if (diasRestantes <= 7) return "atencao";
+  return "normal";
+}
+
 /** Arquivo .ics com um evento por prazo (horários em UTC; o aplicativo de agenda converte). */
 export function gerarIcs(eventos: EventoIcs[], agora: Date, nome = "Prazos de licitações"): string {
   const linhas = [

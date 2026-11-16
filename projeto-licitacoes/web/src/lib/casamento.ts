@@ -112,6 +112,11 @@ export type AvisoParaWebhook = {
     ano: number;
     sequencial: number;
   };
+  /** Melhoria 8: campos opcionais de enriquecimento. */
+  enriquecimento?: {
+    aderencia?: { nota: number; principaisMotivos: string[] } | null;
+    referencia?: { descontoMediano: number | null; amostra: number } | null;
+  };
 };
 
 /** Corpo JSON enviado a ALERTA_WEBHOOK_URL (formato documentado no README). */
@@ -135,6 +140,8 @@ export function montarCorpoWebhook(avisos: AvisoParaWebhook[], agora: Date) {
         encerramento: a.licitacao.encerramento?.toISOString() ?? null,
         caminho: `/licitacao/${a.licitacao.cnpj}/${a.licitacao.ano}/${a.licitacao.sequencial}`,
       },
+      // Enriquecimento optional (Melhoria 8): presente quando aderência e/ou preço de referência estão disponíveis.
+      ...(a.enriquecimento ? { aderencia: a.enriquecimento.aderencia ?? undefined, referencia: a.enriquecimento.referencia ?? undefined } : {}),
     })),
   };
 }
