@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
+import { Suspense } from "react";
 import { ArrowLeft, StopCircle } from "lucide-react";
 import { acaoParaSessao } from "@/app/acoes-robo-sessao";
 import { Botao, Esqueleto, Selo } from "@/components/ui/basicos";
@@ -39,7 +40,9 @@ export default function PaginaSessao(props: Props) {
         <ArrowLeft aria-hidden className="size-4" />
         Voltar ao robô de lance
       </Link>
-      <Conteudo {...props} />
+      <Suspense fallback={<Esqueleto className="h-96 w-full" />}>
+        <Conteudo {...props} />
+      </Suspense>
     </main>
   );
 }
