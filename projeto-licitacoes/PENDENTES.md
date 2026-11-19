@@ -9,7 +9,7 @@ Registro de trabalho planejado. Atualizar a cada sessão.
 A landing page existe (`/apresentacao`) e já é a entrada do sistema. Precisa de polimento antes de ir para produção apresentável a clientes.
 
 ### A fazer
-- [ ] **Revisão de texto** — ajustar copywriting (nome do produto, proposta de valor, sem referência a Effecti/Conlicitacao)
+- [ ] **Revisão de texto** — ajustar copywriting (nome do produto, proposta de valor, sem citar nenhuma plataforma concorrente pelo nome)
 - [ ] **Identidade visual** — logo definitivo, paleta de cores, tipografia (atualmente Playfair + IBM Plex)
 - [ ] **SEO básico** — `og:image`, `twitter:card`, favicon em SVG/PNG, `robots.txt`, `sitemap.xml`
 - [ ] **Domínio próprio** — apontar domínio contratado para o Railway
